@@ -1,5 +1,6 @@
 mod tents;
 
 fn main() {
-    tents::Game::new("tents.txt".to_string());
+    let game = tents::Game::new("src/tents.txt".to_string());
+    println!("{:?}", game);
 }

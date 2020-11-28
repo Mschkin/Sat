@@ -1,13 +1,16 @@
+#[derive(Debug)]
 struct Tent{
     position:(usize,usize),
     number:usize,
 }
 
+#[derive(Debug)]
 struct Tree{
     position:(usize,usize),
     tents:Vec<Tent>,
 }
 
+#[derive(Debug)]
 pub struct Game{
     trees:Vec<Tree>,
     max_column:usize,
@@ -47,13 +50,11 @@ impl Game {
                 }
                 index+=1;             
             } else {
-                this.tents_in_rows[row]=i.parse::<usize>().unwrap();
+                this.tents_in_rows.push(i.parse::<usize>().unwrap());
             }            
         }
-        index=0;
         for j in &input[end..] {
-            this.tents_in_columns[index]=j.parse::<usize>().unwrap();
-            index+=1;
+            this.tents_in_columns.push(j.parse::<usize>().unwrap());
         }
         let mut next_number=1;
         
