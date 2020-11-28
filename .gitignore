@@ -1,4 +1,5 @@
-/target/
-**/*.rs.bk
+.DS_store
 Cargo.lock
+Cargo.toml
+target/
 cadical-sc2020-45029f8
