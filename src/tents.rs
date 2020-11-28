@@ -30,8 +30,8 @@ impl Game {
             tents_in_columns: Vec::<usize>::new(),
         };
                
-        let mut row:usize =0;
-        let mut column:usize =0;
+        let mut row:usize;
+        let mut column:usize;
         let mut index=0;
         let end=(this.max_column+1)*this.max_row+3;
         for i in &input[2..end]{
@@ -56,17 +56,17 @@ impl Game {
             index+=1;
         }
         let mut next_number=1;
-        for mut tree in this.trees{
-            for tent in this.get_tents(tree.position,next_number){
-                tree.tents.push(tent);
-            }
-            next_number+=tree.tents.len();
+        
+        for tree_number in 0..this.trees.len(){
+            let my_tents = this.get_tents(this.trees[tree_number].position,next_number);
+            this.trees[tree_number].tents = my_tents;
+            next_number+=this.trees[tree_number].tents.len();
         }
         this
     }
 
-    fn get_tents(&mut self,position:(usize,usize),next_number:usize)->Vec<Tent>{
-        let mut new_tents:Vec<Tent>;
+    fn get_tents(&self,position:(usize,usize),mut next_number:usize)->Vec<Tent>{
+        let mut new_tents=Vec::<Tent>::new();
         for pos in self.get_neighbors(position){
             if self.is_free(pos){
                 let new_tent=Tent{
@@ -81,7 +81,7 @@ impl Game {
     }
     fn is_free(&self,position:(usize,usize))->bool{
         let mut free=true;
-        for i in self.trees{
+        for i in &self.trees{
             if i.position==position{
                 free=false;
             }
@@ -89,7 +89,7 @@ impl Game {
         free
     }
     fn get_neighbors(&self,position:(usize,usize))->Vec<(usize,usize)>{
-        let mut neighbors:Vec<(usize,usize)>;
+        let mut neighbors=Vec::<(usize,usize)>::new();
         if position.0>0{
             neighbors.push((position.0-1,position.1));
         }
