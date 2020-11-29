@@ -122,8 +122,8 @@ impl SatMaker {
     }
 
     pub fn n_choose_k(n:usize,mut k:usize)->Vec<Vec<usize>>{
-        let mut res_old=Vec::<Vec::<usize>>::new();
-        let mut res_new=Vec::<Vec::<usize>>::new();
+        let mut res_old=Vec::<Vec<usize>>::new();
+        let mut res_new=Vec::<Vec<usize>>::new();
         while k>0{
             for mut group in &res_old{
                 let begin:usize;
@@ -132,8 +132,10 @@ impl SatMaker {
                 } else {
                     begin=0;
                 }
-                for i in begin..n-k{                   
-                    res_new.push(group.clone().push(i));
+                for i in begin..n-k{     
+                    let mut clone= group.clone();
+                    clone.push(i);           
+                    res_new.push(clone);
                 }
             }
             k-=1;
