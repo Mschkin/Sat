@@ -1,3 +1,5 @@
+use std::{collections::HashMap, vec};
+
 #[derive(Debug)]
 struct Tent{
     position:(usize,usize),
@@ -17,11 +19,12 @@ struct Game{
     max_row:usize,
     tents_in_rows:Vec<usize>,
     tents_in_columns:Vec<usize>,
+    tents_map:HashMap<(usize,usize),Vec<usize>>,
 }
 
 #[derive(Debug)]
 pub struct SatMaker{
-    clauses:String,
+    pub clauses:String,
     game:Game,
 }
 
@@ -37,6 +40,7 @@ impl Game {
             max_row:input[0].parse::<usize>().unwrap(),
             tents_in_rows: Vec::<usize>::new(),
             tents_in_columns: Vec::<usize>::new(),
+            tents_map:HashMap::new(),
         };
                
         let mut row:usize;
@@ -67,6 +71,20 @@ impl Game {
         for tree_number in 0..this.trees.len(){
             this.trees[tree_number].tents = this.get_tents(this.trees[tree_number].position,next_number);
             next_number+=this.trees[tree_number].tents.len();
+        }
+
+        for i in 0..this.max_row{
+            for j in 0..this.max_column{
+                this.tents_map.insert((i,j),Vec::<usize>::new());
+            }
+        }
+        for tree in this.trees{
+            for tent in tree.tents{
+                let test=match this.tents_map.get(&tent.position){
+                    Some(pos) => pos,
+                    None => vec![0]
+                };
+            }
         }
         this
     }
@@ -121,11 +139,12 @@ impl SatMaker {
         this
     }
 
-    pub fn n_choose_k(n:usize,mut k:usize)->Vec<Vec<usize>>{
-        let mut res_old=Vec::<Vec<usize>>::new();
+    fn n_choose_k(n:usize,mut k:usize)->Vec<Vec<usize>>{
+        let mut res_old=vec![Vec::<usize>::new()];
         let mut res_new=Vec::<Vec<usize>>::new();
         while k>0{
-            for mut group in &res_old{
+            k-=1;
+            for group in &res_old{
                 let begin:usize;
                 if group.len()>0{
                     begin=group[group.len()-1]+1;
@@ -138,15 +157,27 @@ impl SatMaker {
                     res_new.push(clone);
                 }
             }
-            k-=1;
             res_old=res_new;
-            res_new=Vec::<Vec::<usize>>::new();
+            res_new=Vec::<Vec<usize>>::new();
         }
         res_old
     }
 
-    fn exactly_n(&self,n:usize,tent_indices:Vec<usize>){
-
+    pub fn exactly_n(&mut self,n:usize,tent_numbers:Vec<usize>){
+        let mut combinations=Self::n_choose_k(tent_numbers.len(),n+1);
+        for combi in combinations{
+            for i in combi{
+                self.clauses.push_str(&format!("-{} ",tent_numbers[i]));               
+            }
+            self.clauses.push_str("0\n");
+        }
+        combinations=Self::n_choose_k(tent_numbers.len(),tent_numbers.len()-n+1);
+        for combi in combinations{
+            for i in combi{
+                self.clauses.push_str(&format!("{} ",tent_numbers[i]));               
+            }
+            self.clauses.push_str("0\n");
+        }
     }
 
     fn none_adjacent(&self){
@@ -160,7 +191,6 @@ impl SatMaker {
 
 fn read_file(path:&str)->String{
     use std::io::Read;
-    use std;
     let mut file = std::fs::File::open(path).unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
