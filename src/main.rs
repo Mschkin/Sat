@@ -1,6 +1,6 @@
 mod tents;
 
 fn main() {
-    let game = tents::Game::new("src/tents.txt".to_string());
-    println!("{:?}", game);
+    let test=tents::SatMaker::n_choose_k(5,3);
+    println!("{:?}",test);
 }
