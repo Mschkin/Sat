@@ -43,7 +43,7 @@ impl Game {
             tents_in_rows: Vec::<usize>::new(),
             tents_in_columns: Vec::<usize>::new(),
             tents_map: HashMap::new(),
-            variables_qty: 1,
+            variables_qty: 0,
             content: content,
         };
 
@@ -73,7 +73,7 @@ impl Game {
 
         for tree_number in 0..this.trees.len() {
             this.trees[tree_number].tents =
-                this.get_tents(this.trees[tree_number].position, this.variables_qty);
+                this.get_tents(this.trees[tree_number].position, this.variables_qty + 1);
             this.variables_qty += this.trees[tree_number].tents.len();
         }
 
