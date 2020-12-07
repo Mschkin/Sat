@@ -5,6 +5,7 @@ pygame.init()
 class Game:
     grid_width = 1
     image_size = 32
+    menu_size = 32
     block_size = image_size+grid_width
     font = pygame.font.SysFont('Monospace', 16)
 
@@ -12,7 +13,7 @@ class Game:
         self.rows = rows
         self.columns = columns
         self.width = self.image_size+(columns + 1) * self.block_size
-        self.height = self.image_size+(rows+1)*self.block_size
+        self.height = self.menu_size+self.image_size+(rows+1)*self.block_size
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.screen.fill((255, 255, 255))
         self.draw_grid()
@@ -24,11 +25,11 @@ class Game:
     def draw_grid(self):
         for row in range(self.rows+1):
             pygame.draw.line(self.screen, (0, 0, 0),
-                             (self.image_size, self.image_size+row*self.block_size), (self.width-self.block_size, self.image_size+row*self.block_size), self.grid_width)
+                             (self.image_size, self.menu_size+self.image_size+row*self.block_size), (self.width-self.block_size, self.menu_size+self.image_size+row*self.block_size), self.grid_width)
 
         for column in range(self.columns+1):
             pygame.draw.line(self.screen, (0, 0, 0), (self.image_size+column*self.block_size,
-                                                      self.image_size), (self.image_size+column*self.block_size, self.height-self.block_size), self.grid_width)
+                                                      self.menu_size+self.image_size), (self.image_size+column*self.block_size, self.height-self.block_size), self.grid_width)
 
     def change_cell(self, position):
         cell_index = self.position_to_index(position)
@@ -52,24 +53,24 @@ class Game:
                                     (0, 0, 0),
                                     (255, 255, 255))
         text_row_rect = text_row.get_rect()
-        text_row_rect.center = (self.width-self.image_size+self.image_size/2,
-                                (cell_index[0]+1)*self.block_size+self.image_size/2)
+        text_row_rect.center = (self.width-self.image_size/2,
+                                self.menu_size+(cell_index[0]+1)*self.block_size+self.image_size/2)
         text_column = self.font.render(str(tents_qty_in_column),
                                        True,
                                        (0, 0, 0),
                                        (255, 255, 255))
         text_column_rect = text_column.get_rect()
         text_column_rect.center = (
-            (cell_index[1]+1)*self.block_size+self.image_size/2, self.height - self.image_size+self.image_size/2)
+            (cell_index[1]+1)*self.block_size+self.image_size/2, self.height - self.image_size/2)
         self.screen.blit(text_row, text_row_rect)
         self.screen.blit(text_column, text_column_rect)
 
     def position_to_index(self, position):
-        return position[1] // self.block_size - 1, position[0] // self.block_size - 1
+        return (position[1]-self.menu_size) // self.block_size - 1, position[0] // self.block_size - 1
 
     def index_to_position(self, index):
         return ((index[1]+1)*self.block_size, (index[0]+1) * (
-            self.block_size))
+            self.block_size)+self.menu_size)
 
     def validate_cell(self, cell, image_number):
         is_valid = True
