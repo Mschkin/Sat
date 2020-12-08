@@ -1,76 +1,138 @@
 import pygame
-import tkinter as tk
-from tkinter import filedialog
 
 pygame.init()
 
 # global variable
-font = pygame.font.SysFont('Monospace', 16)
+font = pygame.font.Font(None, 24)
+button_font = pygame.font.Font(None, 35)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREY = (105, 105, 105)
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+EMPTY_NUMBER = 0
+TREE_NUMBER = 1
+TENT_NUMBER = 2
 
 
 class Game:
     grid_width = 1
     image_width = 32
     header_width = 32
-    block_width = image_width+grid_width
+    block_width = image_width + grid_width
+    tents_qty_in_rows = []
+    tents_qty_in_columns = []
 
-    def __init__(self, rows, columns):
+    def __init__(self, rows, columns, play_mode=False, cells_content=[]):
         self.rows = rows
         self.columns = columns
+        self.play_mode = play_mode
         self.width = self.image_width+(columns + 1) * self.block_width
         self.height = self.header_width + \
             self.image_width+(rows+1)*self.block_width
         self.screen = pygame.display.set_mode((self.width, self.height))
-        self.screen.fill((255, 255, 255))
+        self.screen.fill(WHITE)
         self.draw_grid()
-        self.cells = [[Cell(self.screen, (i, j), self.index_to_position((i, j)), 0)
-                       for j in range(self.columns)] for i in range(self.rows)]
-        self.back_button = Button(self.screen, (10, 10), 100, 30, 'Back')
-        pygame.display.set_caption('Create game')
+        if not play_mode:
+            self.cells = [[Cell(self.screen, (i, j), self.index_to_position((i, j)), EMPTY_NUMBER, self.image_width)
+                           for j in range(self.columns)] for i in range(self.rows)]
+        else:
+            self.cells = [[Cell(self.screen, (i, j), self.index_to_position((i, j)), cells_content[i][j], self.image_width)
+                           for j in range(self.columns)] for i in range(self.rows)]
+            for index_row, row in enumerate(cells_content[:-1]):
+                self.tents_qty_in_rows.append(row[-1])
+                self.draw_tents_qty_in_row(index_row, row[-1])
+            for index_column, number in enumerate(cells_content[-1]):
+                self.tents_qty_in_columns.append(number)
+                self.draw_tents_qty_in_column(index_column, number)
+        self.back_button = Button(
+            self.screen, (self.image_width, self.image_width / 2), 80, 30, 'Back')
+        if not play_mode:
+            self.create_button = Button(
+                self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Create')
+        self.solve_button = Button(
+            self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Solve')
+        pygame.display.set_caption(
+            'Create game') if not play_mode else pygame.display.set_caption('Play game')
         pygame.display.update()
 
     def draw_grid(self):
         for row in range(self.rows+1):
-            pygame.draw.line(self.screen, (0, 0, 0),
+            pygame.draw.line(self.screen, BLACK,
                              (self.image_width, self.header_width+self.image_width+row*self.block_width), (self.width-self.block_width, self.header_width+self.image_width+row*self.block_width), self.grid_width)
 
         for column in range(self.columns+1):
-            pygame.draw.line(self.screen, (0, 0, 0), (self.image_width+column*self.block_width,
-                                                      self.header_width+self.image_width), (self.image_width+column*self.block_width, self.height-self.block_width), self.grid_width)
+            pygame.draw.line(self.screen, BLACK, (self.image_width+column*self.block_width,
+                                                  self.header_width+self.image_width), (self.image_width+column*self.block_width, self.height-self.block_width), self.grid_width)
 
     def change_cell(self, position):
         cell_index = self.position_to_index(position)
+        # position outside of board
         if cell_index[0] < 0 or cell_index[0] >= self.rows or cell_index[1] < 0 or cell_index[1] >= self.columns:
             return
         cell = self.cells[cell_index[0]][cell_index[1]]
-        image_number = (cell.image_number + 1) % 3
+        if self.play_mode:
+            if cell.image_number == TREE_NUMBER:
+                return
+            else:
+                image_number = EMPTY_NUMBER if cell.image_number == TENT_NUMBER else TENT_NUMBER
+        else:
+            image_number = (cell.image_number + 1) % 3
         cell.image_number = image_number
-        is_valid = self.validate_cell(cell, image_number)
-        cell.set_image(image_number, self.image_width, is_valid)
-        self.update_tents_qty(cell_index)
+        cell.is_valid = self.validate_cell(cell)
+        cell.draw_image()
+        adjacent_cells = self.get_adjacent_cells(cell)
+        for adjacent_cell in adjacent_cells:
+            adjacent_cell.is_valid = self.validate_cell(adjacent_cell)
+            adjacent_cell.draw_image()
+        for cell_in_row in self.cells[cell.index[0]]:
+            if cell_in_row not in adjacent_cells and cell_in_row != cell:
+                cell_in_row.is_valid = self.validate_cell(cell_in_row)
+                cell_in_row.draw_image()
+        for cells in self.cells:
+            cell_in_column = cells[cell_index[1]]
+            if cell_in_column not in adjacent_cells and cell_in_column != cell:
+                cell_in_column.is_valid = self.validate_cell(
+                    cell_in_column)
+                cell_in_column.draw_image()
+        if not self.play_mode:
+            tents_qty = self.get_current_tents_qty(cell_index)
+            self.draw_tents_qty_in_row(cell_index[0], tents_qty[0])
+            self.draw_tents_qty_in_column(cell_index[1], tents_qty[1])
         pygame.display.update()
 
-    def update_tents_qty(self, cell_index):
+    def get_current_tents_qty(self, cell_index):
         tents_qty_in_row = len(
-            [i for i in self.cells[cell_index[0]] if i.image_number == 2])
+            [i for i in self.cells[cell_index[0]] if i.image_number == TENT_NUMBER])
         tents_qty_in_column = len(
-            [i for i in range(self.rows) if self.cells[i][cell_index[1]].image_number == 2])
-        text_row = font.render(str(tents_qty_in_row),
-                               True,
-                               (0, 0, 0),
-                               (255, 255, 255))
-        text_row_rect = text_row.get_rect()
-        text_row_rect.center = (self.width-self.image_width/2,
-                                self.header_width+(cell_index[0]+1)*self.block_width+self.image_width/2)
-        text_column = font.render(str(tents_qty_in_column),
-                                  True,
-                                  (0, 0, 0),
-                                  (255, 255, 255))
-        text_column_rect = text_column.get_rect()
-        text_column_rect.center = (
-            (cell_index[1]+1)*self.block_width+self.image_width/2, self.height - self.image_width/2)
-        self.screen.blit(text_row, text_row_rect)
-        self.screen.blit(text_column, text_column_rect)
+            [i for i in range(self.rows) if self.cells[i][cell_index[1]].image_number == TENT_NUMBER])
+        return tents_qty_in_row, tents_qty_in_column
+
+    def draw_tents_qty_in_row(self, index_row, number):
+        number = font.render(str(number),
+                             True,
+                             BLACK)
+        number_rect = number.get_rect()
+        number_rect.center = (self.width-self.image_width/2,
+                              self.header_width+(index_row+1)*self.block_width+self.image_width/2)
+        # clear old number
+        pygame.draw.rect(self.screen, WHITE, (self.width-self.image_width,
+                                              self.header_width + (index_row + 1)*self.block_width, self.image_width, self.image_width))
+        # draw new number
+        self.screen.blit(number, number_rect)
+
+    def draw_tents_qty_in_column(self, index_column, number):
+        number = font.render(str(number),
+                             True,
+                             BLACK)
+        number_rect = number.get_rect()
+        number_rect.center = (
+            (index_column + 1)*self.block_width + self.image_width / 2, self.height - self.image_width / 2)
+        # clear old number
+        pygame.draw.rect(self.screen, WHITE, ((index_column + 1)*self.block_width,
+                                              self.height - self.image_width, self.image_width, self.image_width))
+        # draw new number
+        self.screen.blit(number, number_rect)
 
     def position_to_index(self, position):
         return (position[1]-self.header_width) // self.block_width - 1, position[0] // self.block_width - 1
@@ -78,20 +140,17 @@ class Game:
     def index_to_position(self, index):
         return ((index[1]+1)*self.block_width, (index[0]+1) * self.block_width+self.header_width)
 
-    def validate_cell(self, cell, image_number):
-        is_valid = True
+    def validate_cell(self, cell):
         adjacent_cells = self.get_adjacent_cells(cell)
-        if image_number == 2:  # tent
+        if cell.image_number == TENT_NUMBER:
             for adjacent_cell in adjacent_cells:
-                if adjacent_cell.image_number == 2:
-                    adjacent_cell.set_image(2, self.image_width, False)
-                    is_valid = False
-        else:
-            for adjacent_cell in adjacent_cells:
-                if adjacent_cell.image_number == 2:
-                    if self.validate_cell(adjacent_cell, 2):
-                        adjacent_cell.set_image(2, self.image_width, True)
-        return is_valid
+                if adjacent_cell.image_number == TENT_NUMBER:
+                    return False
+        if self.play_mode:
+            tents_qty = self.get_current_tents_qty(cell.index)
+            if tents_qty[0] > self.tents_qty_in_rows[cell.index[0]] or tents_qty[1] > self.tents_qty_in_columns[cell.index[1]]:
+                return False
+        return True
 
     def get_adjacent_cells(self, cell):
         adjacent_cells = []
@@ -114,46 +173,66 @@ class Game:
 
 
 class Cell:
+    is_valid = True
 
-    def __init__(self, screen, index, position, image_number):
+    def __init__(self, screen, index, position, image_number, image_width):
         self.screen = screen
         self.index = index
         self.position = position
         self.image_number = image_number
+        self.image_width = image_width
+        self.draw_image()
 
-    def set_image(self, image_number, image_width, is_valid):
-        if image_number == 0:
-            self.draw_background(self.position, (255, 255, 255), image_width)
-        else:
-            color = (255, 255, 255) if is_valid else (255, 0, 0)
-            self.draw_background(self.position, color, image_width)
-            if image_number == 1:
+    def draw_image(self):
+        color = WHITE if self.is_valid else RED
+        self.draw_background(self.position, color)
+        if self.image_number != EMPTY_NUMBER:
+            if self.image_number == TREE_NUMBER:
                 image = pygame.image.load(r'src/tree.png')
             else:
                 image = pygame.image.load(r'src/tent.png')
             self.screen.blit(image, self.position)
 
-    def draw_background(self, position, color, image_width):
+    def draw_background(self, position, color):
         pygame.draw.rect(self.screen, color, position +
-                         (image_width, image_width))
+                         (self.image_width, self.image_width))
 
 
 class Menu:
-    screen_width = 300
+    screen_width = 360
     screen_height = 300
 
     def __init__(self):
         self.screen = pygame.display.set_mode(
             (self.screen_width, self.screen_height))
-        self.screen.fill((255, 255, 255))
-        self.input_field_rows = InputField(self.screen, (50, 10), 30, 30, '8')
+        self.screen.fill(BLACK)
+        self.screen.blit(font.render('Please enter the puzzle size:',
+                                     True,
+                                     (100, 100, 100)), (50, 20))
+        self.input_field_rows = InputField(self.screen, (50, 50), 30, 30, '8')
         self.input_field_columns = InputField(
-            self.screen, (100, 10), 30, 30, '8')
-        self.button = Button(self.screen, (50, 50), 130, 30, 'Create game')
-        self.upload_file_button = Button(
-            self.screen, (50, 100), 130, 30, 'Load game from file')
+            self.screen, (100, 50), 30, 30, '8')
+        self.screen.blit(font.render('X',
+                                     True,
+                                     (100, 100, 100)), (85, 57))
+        self.generate_manu_button = MenuButton(
+            self.screen, (50, 100), 'Create game manually')
+        self.generate_auto_button = MenuButton(
+            self.screen, (50, 140), 'Generate random game')
+        self.load_game_button = MenuButton(
+            self.screen, (50, 180), 'Load game from file')
+        self.input_field_file = InputField(
+            self.screen, (50, 230), 230, 30, 'src/tents.txt')
         pygame.display.set_caption('Tents Puzzle')
         pygame.display.update()
+
+    def load_game(self, file_path):
+        with open(file_path) as file:
+            contents = [[n.rstrip() for n in line.split(' ')] for line in file]
+        rows, columns = contents[0]
+        cells_content = [[0 if n == '.' else (
+            1 if n == 'T' else int(n)) for n in row] for row in contents[1:]]
+        return Game(int(rows), int(columns), True, cells_content)
 
 
 class InputField:
@@ -165,19 +244,39 @@ class InputField:
         self.height = height
         self.content = content
         self.rect = pygame.draw.rect(
-            self.screen, (0, 0, 0), self.position+(self.width, self.height), 1)
+            self.screen, BLACK, self.position+(self.width, self.height), 1)
         self.draw_field()
 
     def draw_field(self):
-        pygame.draw.rect(
-            self.screen, (255, 255, 255), (self.position[0]+1, self.position[1]+1, self.width-2, self.height-2))
+        self.rect = pygame.draw.rect(
+            self.screen, WHITE, self.position+(self.width, self.height))
         content = font.render(self.content,
                               True,
-                              (0, 0, 0),
-                              (255, 255, 255))
+                              BLACK)
         content_rect = content.get_rect()
         content_rect.center = self.rect.center  # center the number
         self.screen.blit(content, content_rect)
+
+
+class MenuButton:
+    hovered = False
+
+    def __init__(self, screen, position, text):
+        self.screen = screen
+        self.position = position
+        self.text = text
+        self.draw_button()
+
+    def draw_button(self):
+        text = button_font.render(self.text,
+                                  True,
+                                  self.get_color())
+        self.rect = text.get_rect()
+        self.rect.topleft = self.position
+        self.screen.blit(text, self.rect)
+
+    def get_color(self):
+        return (150, 150, 150) if self.hovered else(100, 100, 100)
 
 
 class Button:
@@ -188,31 +287,16 @@ class Button:
         self.height = height
         self.text = text
         self.rect = pygame.draw.rect(
-            self.screen, (128, 128, 128), self.position+(self.width, self.height))
+            self.screen, GREY, self.position+(self.width, self.height))
         self.draw_button()
 
     def draw_button(self):
         text = font.render(self.text,
                            True,
-                           (0, 0, 0),
-                           (128, 128, 128))
+                           WHITE)
         text_rect = text.get_rect()
         text_rect.center = self.rect.center  # center the text
         self.screen.blit(text, text_rect)
-
-
-def upload_file():
-    root = tk.Tk()
-    button = tk.Button(root, text='Open', command=load_game)
-    button.pack()
-    root.mainloop()
-
-
-def load_game():
-    file = filedialog.askopenfilename()
-    with open(file) as f:
-        for l in f:
-            print(l)
 
 
 def main():
@@ -223,6 +307,13 @@ def main():
     run_game = False
     while run_menu or run_game:
         while run_menu:
+            for button in [menu.generate_manu_button, menu.generate_auto_button, menu.load_game_button]:
+                if button.rect.collidepoint(pygame.mouse.get_pos()):  # on hover
+                    button.hovered = True
+                else:
+                    button.hovered = False
+                button.draw_button()
+            pygame.display.update()
             # Handle events
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONUP:
@@ -235,21 +326,36 @@ def main():
                         edit_columns = True
                     else:
                         edit_columns = False
-                    if menu.button.rect.collidepoint(position):
+                    if menu.input_field_file.rect.collidepoint(position):
+                        edit_file_path = True
+                    else:
+                        edit_file_path = False
+                    if menu.generate_manu_button.rect.collidepoint(position):
                         rows = int(menu.input_field_rows.content)
                         columns = int(menu.input_field_columns.content)
                         game = Game(rows, columns)
                         run_menu = False
                         run_game = True
-                    if menu.upload_file_button.rect.collidepoint(position):
-                        upload_file()
-                elif event.type == pygame.KEYDOWN and (edit_rows or edit_columns):
-                    input_field = menu.input_field_rows if edit_rows else menu.input_field_columns
+                    if menu.load_game_button.rect.collidepoint(position):
+                        file_path = menu.input_field_file.content
+                        game = menu.load_game(file_path)
+                        run_menu = False
+                        run_game = True
+                elif event.type == pygame.KEYDOWN and (edit_rows or edit_columns or edit_file_path):
+                    if edit_rows:
+                        input_field = menu.input_field_rows
+                    elif edit_columns:
+                        input_field = menu.input_field_columns
+                    else:
+                        input_field = menu.input_field_file
                     if event.key in key_numbers:
                         input_field.content += chr(event.key)
                     elif event.key == pygame.K_BACKSPACE:
                         if len(input_field.content) > 0:
                             input_field.content = input_field.content[:-1]
+                    else:  # none numberic inputs only allowed for input_field_file
+                        if edit_file_path:
+                            input_field.content += chr(event.key)
                     input_field.draw_field()
                     pygame.display.update()
                 elif event.type == pygame.QUIT:
