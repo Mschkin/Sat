@@ -5,3 +5,4 @@ target/
 cadical-sc2020-45029f8
 tents_encoded.cnf
 test.py
+tents.txt

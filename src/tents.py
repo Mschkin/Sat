@@ -1,4 +1,5 @@
 import pygame
+import subprocess
 
 pygame.init()
 
@@ -171,6 +172,10 @@ class Game:
                         self.cells[cell.index[0] + i][cell.index[1] + j])
         return adjacent_cells
 
+    def solve_puzzle(self):
+        result = subprocess.run(['target/debug/rust'], capture_output=True)
+        print(result)
+
 
 class Cell:
     is_valid = True
@@ -230,8 +235,17 @@ class Menu:
         with open(file_path) as file:
             contents = [[n.rstrip() for n in line.split(' ')] for line in file]
         rows, columns = contents[0]
+        contents_new = []
+        for content in contents[1:]:
+            content_new = []
+            for value in content:
+                if '.' in value or 'T' in value:
+                    content_new += list(value)
+                else:
+                    content_new.append(value)
+            contents_new.append(content_new)
         cells_content = [[0 if n == '.' else (
-            1 if n == 'T' else int(n)) for n in row] for row in contents[1:]]
+            1 if n == 'T' else int(n)) for n in row] for row in contents_new]
         return Game(int(rows), int(columns), True, cells_content)
 
 
@@ -336,7 +350,7 @@ def main():
                         game = Game(rows, columns)
                         run_menu = False
                         run_game = True
-                    if menu.load_game_button.rect.collidepoint(position):
+                    elif menu.load_game_button.rect.collidepoint(position):
                         file_path = menu.input_field_file.content
                         game = menu.load_game(file_path)
                         run_menu = False
@@ -370,6 +384,8 @@ def main():
                         menu = Menu()
                         run_game = False
                         run_menu = True
+                    elif game.solve_button.rect.collidepoint(position):
+                        game.solve_puzzle()
                     else:
                         game.change_cell(position)
                 elif event.type == pygame.QUIT:
