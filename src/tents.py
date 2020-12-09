@@ -173,8 +173,13 @@ class Game:
         return adjacent_cells
 
     def solve_puzzle(self):
-        result = subprocess.run(['target/release/sat'], capture_output=True)
-        print(result)
+        result = subprocess.run(['target/release/tents'], capture_output=True)
+        result = eval(result.stdout[:-1])
+        for index in result:
+            cell = self.cells[index[0]][index[1]]
+            cell.image_number = TENT_NUMBER
+            cell.draw_image()
+        pygame.display.update()
 
 
 class Cell:
@@ -233,6 +238,9 @@ class Menu:
 
     def load_game(self, file_path):
         with open(file_path) as file:
+            file = list(file)
+            with open('src/tents.txt', 'w') as new_file:
+                new_file.write(''.join(file))
             contents = [[n.rstrip() for n in line.split(' ')] for line in file]
         rows, columns = contents[0]
         contents_new = []
@@ -322,12 +330,18 @@ def main():
     while run_menu or run_game:
         while run_menu:
             for button in [menu.generate_manu_button, menu.generate_auto_button, menu.load_game_button]:
+                change_hover = False
                 if button.rect.collidepoint(pygame.mouse.get_pos()):  # on hover
-                    button.hovered = True
+                    if not button.hovered:
+                        button.hovered = True
+                        change_hover = True
                 else:
-                    button.hovered = False
-                button.draw_button()
-            pygame.display.update()
+                    if button.hovered:
+                        button.hovered = False
+                        change_hover = True
+                if change_hover:
+                    button.draw_button()
+                    pygame.display.update()
             # Handle events
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONUP:
