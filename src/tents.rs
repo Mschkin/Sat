@@ -21,7 +21,7 @@ struct Game {
     tents_in_columns: Vec<usize>,
     tents_map: HashMap<(usize, usize), Vec<usize>>,
     variables_qty: usize,
-    content: String,
+    content: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -36,22 +36,23 @@ impl Game {
         let content: String = read_file(path);
         let content_clone = content.clone();
         let input: Vec<&str> = (&content_clone).split_whitespace().collect();
+        let formated=Game::format_properly(input);
         let mut this = Self {
             trees: Vec::<Tree>::new(),
-            max_column: input[1].parse::<usize>().unwrap(),
-            max_row: input[0].parse::<usize>().unwrap(),
+            max_column: formated[1].parse::<usize>().unwrap(),
+            max_row: formated[0].parse::<usize>().unwrap(),
             tents_in_rows: Vec::<usize>::new(),
             tents_in_columns: Vec::<usize>::new(),
             tents_map: HashMap::new(),
             variables_qty: 0,
-            content: content,
+            content: formated,
         };
 
         let mut row: usize;
         let mut column: usize;
         let mut index = 0;
         let end = (this.max_column + 1) * this.max_row + 2;
-        for i in &input[2..end] {
+        for i in &this.content[2..end] {
             row = index / this.max_column;
             column = index % this.max_column;
             if *i == "T" || *i == "." {
@@ -67,7 +68,7 @@ impl Game {
                 this.tents_in_rows.push(i.parse::<usize>().unwrap());
             }
         }
-        for j in &input[end..] {
+        for j in &this.content[end..] {
             this.tents_in_columns.push(j.parse::<usize>().unwrap());
         }
 
@@ -131,6 +132,22 @@ impl Game {
             neighbors.push((position.0 + 1, position.1));
         }
         neighbors
+    }
+    fn format_properly(input:Vec<&str>)->Vec<String>{
+        let mut formated=Vec::<String>::new();
+        for i in &input{
+            let first_char=i.chars().next().unwrap();
+            if first_char=='T'||first_char=='.'{
+                for j in i.chars(){
+
+                    formated.push(j.to_string());
+                }
+            }
+            else{
+                formated.push(i.to_string());
+            }
+        }
+        formated
     }
 }
 
@@ -266,21 +283,20 @@ impl SatMaker {
         }
     }
 
-    pub fn solve_sat(&self) {
+    pub fn solve_sat(&mut self) {
         write_file("src/tents_encoded.cnf", &self.clauses);
-        let cmd = std::process::Command::new("../cadical-sc2020-45029f8/build/cadical")
+        let cmd = std::process::Command::new("cadical-sc2020-45029f8/build/cadical")
             .args(&["-q", "src/tents_encoded.cnf"])
             .output()
             .expect("failed to execute process");
         let sol = cmd.stdout;
         let res = format!("{}", String::from_utf8_lossy(&sol));
-        println!("{}", res);
         let truth_values = self.convert_to_true(res);
-        let mut game_content: Vec<&str> = self.game.content.split_whitespace().collect();
+        let game_content = &mut self.game.content;
         let mut sol_content = String::new();
-        sol_content.push_str(game_content[0]);
+        sol_content.push_str(&game_content[0]);
         sol_content.push_str(" ");
-        sol_content.push_str(game_content[1]);
+        sol_content.push_str(&game_content[1]);
         sol_content.push_str("\n");
         for row in 0..self.game.max_row {
             for column in 0..self.game.max_column {
@@ -289,17 +305,17 @@ impl SatMaker {
                     is_tent = is_tent || truth_values[tent_number - 1];
                 }
                 if is_tent {
-                    game_content[2 + (self.game.max_row + 1) * row + column] = "X";
+                    game_content[2 + (self.game.max_column + 1) * row + column] = "X".to_string();
                 }
-                sol_content.push_str(game_content[2 + (self.game.max_row + 1) * row + column]);
+                sol_content.push_str(&game_content[2 + (self.game.max_column + 1) * row + column]);
                 sol_content.push_str(" ");
             }
-            sol_content.push_str(game_content[1 + (self.game.max_row + 1) * (row + 1)]);
+            sol_content.push_str(&game_content[1 + (self.game.max_column + 1) * (row + 1)]);
             sol_content.push_str("\n");
         }
         for column in 0..self.game.max_column {
             sol_content
-                .push_str(game_content[2 + (self.game.max_row + 1) * self.game.max_row + column]);
+                .push_str(&game_content[2 + (self.game.max_column + 1) * self.game.max_row + column]);
             sol_content.push_str(" ");
         }
         println!("{}", sol_content);

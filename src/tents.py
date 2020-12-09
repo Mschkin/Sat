@@ -173,7 +173,7 @@ class Game:
         return adjacent_cells
 
     def solve_puzzle(self):
-        result = subprocess.run(['target/debug/rust'], capture_output=True)
+        result = subprocess.run(['target/release/sat'], capture_output=True)
         print(result)
 
 
