@@ -1,7 +1,8 @@
 mod tents;
 use std::time:: Instant;
 
-
+#[macro_use]
+extern crate itertools;
 
 fn main() {
     let a = ['A', 'B', 'C'];
