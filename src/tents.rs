@@ -298,6 +298,7 @@ impl SatMaker {
         sol_content.push_str(" ");
         sol_content.push_str(&game_content[1]);
         sol_content.push_str("\n");
+        let mut tent_pos=Vec::<(usize,usize)>::new();
         for row in 0..self.game.max_row {
             for column in 0..self.game.max_column {
                 let mut is_tent = false;
@@ -306,6 +307,7 @@ impl SatMaker {
                 }
                 if is_tent {
                     game_content[2 + (self.game.max_column + 1) * row + column] = "X".to_string();
+                    tent_pos.push((row,column));
                 }
                 sol_content.push_str(&game_content[2 + (self.game.max_column + 1) * row + column]);
                 sol_content.push_str(" ");
@@ -318,7 +320,7 @@ impl SatMaker {
                 .push_str(&game_content[2 + (self.game.max_column + 1) * self.game.max_row + column]);
             sol_content.push_str(" ");
         }
-        println!("{}", sol_content);
+        println!("{:?}", tent_pos);
     }
 
     fn convert_to_true(&self, res: String) -> Vec<bool> {
