@@ -573,7 +573,12 @@ impl SatMaker {
             );
             sol_content.push_str(" ");
         }
-        println!("{:?}", tent_pos);
+        if tent_pos.len()==0{
+            println!("UNSAT")
+        }
+        else{
+            println!("Tentmap:#~#{:?}#~#", tent_pos);
+        }
         //self.find_unsat_clause();
     }
 
@@ -599,9 +604,15 @@ impl SatMaker {
             } else {
                 self.clauses.push_str(&format!(" {}", k));
             }
-            //k+=1;
+            k+=1;
         }
         self.clauses.push_str(" 0\n");
+        let claus_vec:Vec<&str>=self.clauses.split("\n").collect();
+        self.clauses=claus_vec[1..].join("\n");
+        self.clauses = format!(
+            "p cnf {} {}\n{}",
+            self.game.variables_qty, self.clauses_qty, self.clauses
+        );
         self.solve_sat();
     }
 
