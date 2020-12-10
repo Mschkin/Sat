@@ -182,10 +182,10 @@ class Game:
         return adjacent_cells
 
     def create_puzzel(self):
-        if len(self.get_solution()) == 0:
-            self.render_message('UNSAT', RED)
-            pygame.display.update()
-            return
+        # if len(self.get_solution()) == 0:
+        #     self.render_message('UNSAT', RED)
+        #     pygame.display.update()
+        #     return
         content = f'{self.rows} {self.columns}\n'
         for row, cells in enumerate(self.cells):
             content += ' '.join(['.' if cell.image_number == EMPTY_NUMBER or cell.image_number ==
@@ -196,6 +196,8 @@ class Game:
         self.play_mode = True
         self.solve_or_create_button = Button(
             self.screen, (self.width - self.image_width - 80, self.image_width / 2), 80, 30, 'Solve')
+        self.reset_button = Button(
+            self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Reset')
         for cells in self.cells:
             for cell in cells:
                 if cell.image_number == TENT_NUMBER:
@@ -222,7 +224,7 @@ class Game:
                 possible_trees[np.random.randint(
                     len(possible_trees))].image_number = TREE_NUMBER
                 next_cell.image_number = TENT_NUMBER
-            possible_trees.remove(next_tent_number)
+            possible_tents.remove(next_tent_number)
         for row in range(self.rows):
             self.tents_qty_in_rows[row] = len(
                 [i for i in self.cells[row] if i.image_number == TENT_NUMBER])
@@ -256,6 +258,7 @@ class Game:
     def get_solution(self):
         solution = subprocess.run(
             ['target/release/tents'], capture_output=True)
+        print(solution)
         return eval(solution.stdout[:-1])
 
     def render_message(self, text, color):
