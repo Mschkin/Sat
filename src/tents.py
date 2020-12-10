@@ -298,7 +298,8 @@ class Menu:
             file = list(file)
             with open('src/tents.txt', 'w') as new_file:
                 new_file.write(''.join(file))
-            contents = [[n.rstrip() for n in line.split(' ')] for line in file]
+            contents = [[n.rstrip() for n in line.split(' ')]
+                        for line in file if line.strip() != '']
         rows, columns = contents[0]
         contents_new = []
         for content in contents[1:]:

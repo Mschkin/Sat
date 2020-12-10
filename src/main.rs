@@ -9,9 +9,9 @@ fn main() {
 
     let mut sat_maker = tents::SatMaker::new("src/tents.txt");
     let mut duration = start.elapsed();
-    println!("encoding time: {:?}", duration);
+    //println!("encoding time: {:?}", duration);
     sat_maker.solve_sat();
     let duration1 = start.elapsed();
-    println!("solving time: {:?}", duration1-duration);
+    //println!("solving time: {:?}", duration1-duration);
 }
 

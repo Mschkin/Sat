@@ -561,5 +561,5 @@ fn write_file(path: &str, text: &String) {
     use std::io::Write;
     let mut file = std::fs::File::create(path).expect("create failed");
     file.write_all(text.as_bytes()).expect("write failed");
-    println!("data written to file");
+    //println!("data written to file");
 }
