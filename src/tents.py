@@ -206,9 +206,10 @@ class Game:
     def generate_random_puzzle(self):
         possible_tents = list(range(self.rows * self.columns))
         while len(possible_tents) > 0:
-            next_tent_number = np.random.randint(len(possible_tents))
-            next_cell = self.cells[possible_tents[next_tent_number] //
-                                   self.columns][possible_tents[next_tent_number] % self.columns]
+            next_tent_number = possible_tents[np.random.randint(
+                len(possible_tents))]
+            next_cell = self.cells[next_tent_number //
+                                   self.columns][next_tent_number % self.columns]
             possible_trees = []
             for cell in self.get_adjacent_cells(next_cell):
                 if cell.index[0] * self.columns + cell.index[1] in possible_tents:
