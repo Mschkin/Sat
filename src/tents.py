@@ -1,5 +1,6 @@
 import pygame
 import subprocess
+import numpy as np
 
 pygame.init()
 
@@ -201,6 +202,33 @@ class Game:
                     cell.image_number = EMPTY_NUMBER
                     cell.draw_image()
         pygame.display.update()
+
+    def generate_random_puzzle(self):
+        possible_tents = list(range(self.rows * self.columns))
+        while len(possible_tents) > 0:
+            next_tent = np.random.randint(len(possible_tents))
+            next_cell = self.cells[possible_tents[next_tent] //
+                                   self.columns][possible_tents[next_tent] % self.columns]
+            next_cell.image_number = TENT_NUMBER
+            for cell in self.get_adjacent_cells(next_cell):
+                possible_tents.remove(
+                    cell.index[0] * self.columns + cell.index[1])
+                if cell.index[0] == next_cell.index[0] or cell.index[1] == next_cell.index[1]:
+                    cell.image_number = TREE_NUMBER
+        for row in range(self.rows):
+            self.tents_qty_in_rows[row] = len(
+                [i for i in self.cells[row] if i.image_number == TENT_NUMBER])
+            self.draw_tents_qty_in_row(row, self.tents_qty_in_rows[row])
+        for column in range(self.columns):
+            self.tents_qty_in_columns[column] = len([i for i in range(
+                self.rows) if self.cells[i][column].image_number == TENT_NUMBER])
+            self.draw_tents_qty_in_column(
+                column, self.tents_qty_in_columns[column])
+        for cells in self.cells:
+            for cell in cells:
+                if cell.image_number == TREE_NUMBER:
+                    cell.draw_image()
+        self.create_puzzel()
 
     def solve_puzzle(self):
         solution = self.get_solution()
@@ -432,6 +460,13 @@ def main():
                         rows = int(menu.input_field_rows.content)
                         columns = int(menu.input_field_columns.content)
                         game = Game(rows, columns)
+                        run_menu = False
+                        run_game = True
+                    if menu.generate_auto_button.rect.collidepoint(position):
+                        rows = int(menu.input_field_rows.content)
+                        columns = int(menu.input_field_columns.content)
+                        game = Game(rows, columns)
+                        game.generate_random_puzzle()
                         run_menu = False
                         run_game = True
                     elif menu.load_game_button.rect.collidepoint(position):
