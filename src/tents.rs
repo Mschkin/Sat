@@ -464,7 +464,7 @@ impl SatMaker {
         }
     }
 
-    pub fn solve_sat(&mut self) {
+    pub fn solve_sat(&mut self){
         write_file("src/tents_encoded.cnf", &self.clauses);
         let cmd = std::process::Command::new("cadical-sc2020-45029f8/build/cadical")
             .args(&["-q", "src/tents_encoded.cnf"])
@@ -518,6 +518,20 @@ impl SatMaker {
             }
         }
         truth_values
+    }
+    pub fn unique_check(&mut self){
+        let mut k=1;
+        self.clauses_qty+=1;
+        for t in &self.truth_values{
+            if *t{
+                self.clauses.push_str(&format!(" -{}",k));
+            }
+            else{
+                self.clauses.push_str(&format!(" {}",k));
+            }
+        }
+        self.clauses.push_str(" 0\n");
+        self.solve_sat();
     }
 
     fn find_unsat_clause(&self){
