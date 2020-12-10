@@ -469,7 +469,12 @@ impl SatMaker {
             for tent in &self.game.trees[tree_number].tents {
                 tent_numbers.push(tent.number);
             }
-            &self.exactly_n(1, tent_numbers);
+            if tent_numbers.len()>0{
+                &self.exactly_n(1, tent_numbers);
+            }
+            else{
+                println!("UNSAT");
+            }
         }
         for row in 0..self.game.max_row {
             let mut tents_in_row = Vec::<Vec<usize>>::new();
