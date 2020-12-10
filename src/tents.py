@@ -41,6 +41,8 @@ class Game:
                 self.draw_tents_qty_in_row(i, 0)
             for j in range(self.columns):
                 self.draw_tents_qty_in_column(j, 0)
+            self.solve_or_create_button = Button(
+                self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Create')
         else:
             self.cells = [[Cell(self.screen, (i, j), self.index_to_position((i, j)), cells_content[i][j], self.image_width)
                            for j in range(self.columns)] for i in range(self.rows)]
@@ -48,16 +50,14 @@ class Game:
                 self.tents_qty_in_rows[index_row] = row[-1]
                 self.draw_tents_qty_in_row(index_row, row[-1])
             for index_column, number in enumerate(cells_content[-1]):
-                self.tents_qty_in_columns[index_column].number
+                self.tents_qty_in_columns[index_column] = number
                 self.draw_tents_qty_in_column(index_column, number)
-        self.back_button = Button(
-            self.screen, (self.image_width, self.image_width / 2), 80, 30, 'Back')
-        if not play_mode:
-            self.solve_or_create_button = Button(
-                self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Create')
-        else:
+            self.reset_button = Button(
+                self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Reset')
             self.solve_or_create_button = Button(
                 self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Solve')
+        self.back_button = Button(
+            self.screen, (self.image_width, self.image_width / 2), 80, 30, 'Back')
         pygame.display.set_caption(
             'Create game') if not play_mode else pygame.display.set_caption('Play game')
         pygame.display.update()
@@ -181,6 +181,8 @@ class Game:
         return adjacent_cells
 
     def create_puzzel(self):
+        if not self.is_puzzel_valid():
+            return
         content = f'{self.rows} {self.columns}\n'
         for row, cells in enumerate(self.cells):
             content += ' '.join(['.' if cell.image_number == EMPTY_NUMBER or cell.image_number ==
@@ -198,14 +200,41 @@ class Game:
                     cell.draw_image()
         pygame.display.update()
 
+    def is_puzzel_valid(self):
+        for cells in self.cells:
+            for cell in cells:
+                if not cell.is_valid:
+                    return False
+        return True
+
     def solve_puzzle(self):
         result = subprocess.run(['target/release/tents'], capture_output=True)
         result = eval(result.stdout[:-1])
-        for index in result:
-            cell = self.cells[index[0]][index[1]]
-            cell.image_number = TENT_NUMBER
-            cell.draw_image()
+        if len(result) > 0:
+            self.reset_game()
+            for index in result:
+                cell = self.cells[index[0]][index[1]]
+                cell.image_number = TENT_NUMBER
+                cell.draw_image()
+        else:
+            text = button_font.render('UNSAT', True, RED)
+            rect = text.get_rect()
+            rect.center = (self.width/2, self.height/2)
+            self.screen.blit(text, rect)
         pygame.display.update()
+
+    def reset_game(self):
+        # remove tents and redraw unvalid cells
+        for cells in self.cells:
+            for cell in cells:
+                if cell.image_number == TENT_NUMBER:
+                    cell.image_number = EMPTY_NUMBER
+                    if not cell.is_valid:
+                        cell.is_valid = True
+                    cell.draw_image()
+                elif not cell.is_valid:
+                    cell.is_valid = True
+                    cell.draw_image()
 
 
 class Cell:
@@ -429,6 +458,9 @@ def main():
                             game.solve_puzzle()
                         else:  # create
                             game.create_puzzel()
+                    elif game.play_mode and game.reset_button.rect.collidepoint(position):
+                        game.reset_game()
+                        pygame.display.update()
                     else:
                         game.change_cell(position)
                 elif event.type == pygame.QUIT:
