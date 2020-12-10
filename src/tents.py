@@ -1,6 +1,7 @@
 import pygame
 import subprocess
 import numpy as np
+import re
 
 pygame.init()
 
@@ -263,7 +264,9 @@ class Game:
         try:
             solution = subprocess.run(
                 ['target/release/tents'], capture_output=True)
-            return eval(solution.stdout[:-1])
+            result = re.search('Tentmap:#~#(.*)#~#',
+                               str(solution.stdout)).group(1)
+            return eval(result)
         except:
             return []
 
