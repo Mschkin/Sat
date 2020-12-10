@@ -26,6 +26,7 @@ struct Game {
 
 #[derive(Debug)]
 pub struct SatMaker {
+    version: usize,
     clauses: String,
     game: Game,
     clauses_qty: usize,
@@ -86,10 +87,9 @@ impl Game {
         }
         for tree in &this.trees {
             for tent in &tree.tents {
-                this.tents_map
-                    .get_mut(&tent.position)
-                    .unwrap()
-                    .push(tent.number);
+                this.tents_map.get_mut(&tent.position).unwrap().push(
+                    tent.number,
+                );
             }
         }
         this
@@ -153,16 +153,23 @@ impl Game {
 impl SatMaker {
     pub fn new(path: &str) -> Self {
         let mut this = Self {
+            version: 1,
             clauses: String::new(),
             game: Game::new(path),
             clauses_qty: 0,
             truth_values: Vec::<bool>::new(),
         };
         &this.none_adjacent();
-        &this.ensure_tent_qty_pools();
+        if this.version == 1 {
+            &this.ensure_tent_qty();
+        } else {
+            &this.ensure_tent_qty_pools();
+        }
         this.clauses = format!(
             "p cnf {} {}\n{}",
-            this.game.variables_qty, this.clauses_qty, this.clauses
+            this.game.variables_qty,
+            this.clauses_qty,
+            this.clauses
         );
         this
     }
@@ -173,18 +180,20 @@ impl SatMaker {
         let mut number_dict_return2: usize;
         for tent_number in &input[0] {
             number_dict_return = self.update_use_dict(&mut number_dict, (1, 1));
-            &self
-                .clauses
-                .push_str(&format!("-{} {} 0\n", tent_number, number_dict_return));
+            &self.clauses.push_str(&format!(
+                "-{} {} 0\n",
+                tent_number,
+                number_dict_return
+            ));
             self.clauses_qty += 1;
         }
         for tent_number in &input[0] {
             &self.clauses.push_str(&format!("{} ", tent_number));
         }
         number_dict_return = self.update_use_dict(&mut number_dict, (1, 0));
-        &self
-            .clauses
-            .push_str(&format!("{} 0\n", number_dict_return));
+        &self.clauses.push_str(
+            &format!("{} 0\n", number_dict_return),
+        );
         self.clauses_qty += 1;
 
         for step in 1..input.len() - 1 {
@@ -200,7 +209,8 @@ impl SatMaker {
                             self.update_use_dict(&mut number_dict, (step, tent_until));
                         &self.clauses.push_str(&format!(
                             "{} -{} 0\n",
-                            number_dict_return, number_dict_return2
+                            number_dict_return,
+                            number_dict_return2
                         ));
                         self.clauses_qty += 1;
                         for tent_number in &input[step] {
@@ -212,7 +222,8 @@ impl SatMaker {
                             self.update_use_dict(&mut number_dict, (step, tent_until));
                         &self.clauses.push_str(&format!(
                             "-{} {} 0\n",
-                            number_dict_return, number_dict_return2
+                            number_dict_return,
+                            number_dict_return2
                         ));
                         self.clauses_qty += 1;
                     } else {
@@ -221,9 +232,9 @@ impl SatMaker {
                         }
                         number_dict_return =
                             self.update_use_dict(&mut number_dict, (step, tent_until));
-                        &self
-                            .clauses
-                            .push_str(&format!("-{} 0\n", number_dict_return));
+                        &self.clauses.push_str(
+                            &format!("-{} 0\n", number_dict_return),
+                        );
                         self.clauses_qty += 1;
                     }
                     if tent_until < max_tents {
@@ -234,11 +245,15 @@ impl SatMaker {
                                 self.update_use_dict(&mut number_dict, (step, tent_until));
                             &self.clauses.push_str(&format!(
                                 "-{} {} -{} 0\n",
-                                tent_number, number_dict_return, number_dict_return2
+                                tent_number,
+                                number_dict_return,
+                                number_dict_return2
                             ));
                             &self.clauses.push_str(&format!(
                                 "-{} -{} {} 0\n",
-                                tent_number, number_dict_return, number_dict_return2
+                                tent_number,
+                                number_dict_return,
+                                number_dict_return2
                             ));
                             self.clauses_qty += 2;
                         }
@@ -284,7 +299,8 @@ impl SatMaker {
             for j in i + 1..bools_per_step.len() {
                 self.clauses.push_str(&format!(
                     "-{} -{} 0\n",
-                    bools_per_step[i], bools_per_step[j]
+                    bools_per_step[i],
+                    bools_per_step[j]
                 ));
                 self.clauses_qty += 1;
             }
@@ -295,9 +311,10 @@ impl SatMaker {
         self.clauses.push_str("0\n");
         self.clauses_qty += 1;
     }
+
     fn update_use_dict(
         &mut self,
-        mut number_dict: &mut HashMap<(usize, usize), usize>,
+        number_dict: &mut HashMap<(usize, usize), usize>,
         pos: (usize, usize),
     ) -> usize {
         if number_dict.contains_key(&pos) {
@@ -333,12 +350,10 @@ impl SatMaker {
         res_old
     }
 
-    fn choose_from_pool(&mut self, pools: Vec<Vec<usize>>, mut k: usize, with_not: bool) {
+    fn choose_from_pool(&mut self, pools: Vec<Vec<usize>>, k: usize, with_not: bool) {
         let mut pool_choice = Vec::<Vec<usize>>::new();
         let combinations = Self::n_choose_k(pools.len(), k);
-        let mut teststr = String::new();
         for combi in combinations {
-            teststr = "".to_string();
             pool_choice.clear();
             for i in &combi {
                 pool_choice.push(pools[*i].clone());
@@ -347,22 +362,18 @@ impl SatMaker {
                 for claus in &pool_choice {
                     for number in claus {
                         self.clauses.push_str(&format!("-{} ", number));
-                        //teststr.push_str(&format!("-{} ", number));
                     }
                 }
                 self.clauses.push_str("0\n");
                 self.clauses_qty += 1;
-            //println!("{:?}  {:?}  {}",combi,pool_choice,teststr)
             } else {
                 for claus in &pool_choice {
                     for number in claus {
                         self.clauses.push_str(&format!("{} ", number));
-                        //teststr.push_str(&format!("{} ", number));
                     }
                 }
                 self.clauses.push_str("0\n");
                 self.clauses_qty += 1;
-                //println!("{:?}  {:?}  {}",combi,pool_choice,teststr)
             }
         }
     }
@@ -397,36 +408,43 @@ impl SatMaker {
                 for tent_number in tent_numbers {
                     for same_position in tent_numbers {
                         if same_position > tent_number {
-                            self.clauses
-                                .push_str(&format!("-{} -{} 0\n", tent_number, same_position));
+                            self.clauses.push_str(&format!(
+                                "-{} -{} 0\n",
+                                tent_number,
+                                same_position
+                            ));
                             self.clauses_qty += 1;
                         }
                     }
                     if row + 1 < self.game.max_row {
                         for neighbor in &self.game.tents_map[&(row + 1, column)] {
-                            self.clauses
-                                .push_str(&format!("-{} -{} 0\n", tent_number, neighbor));
+                            self.clauses.push_str(
+                                &format!("-{} -{} 0\n", tent_number, neighbor),
+                            );
                             self.clauses_qty += 1;
                         }
                     }
                     if column + 1 < self.game.max_column {
                         for neighbor in &self.game.tents_map[&(row, column + 1)] {
-                            self.clauses
-                                .push_str(&format!("-{} -{} 0\n", tent_number, neighbor));
+                            self.clauses.push_str(
+                                &format!("-{} -{} 0\n", tent_number, neighbor),
+                            );
                             self.clauses_qty += 1;
                         }
                     }
                     if row + 1 < self.game.max_row && column + 1 < self.game.max_column {
                         for neighbor in &self.game.tents_map[&(row + 1, column + 1)] {
-                            self.clauses
-                                .push_str(&format!("-{} -{} 0\n", tent_number, neighbor));
+                            self.clauses.push_str(
+                                &format!("-{} -{} 0\n", tent_number, neighbor),
+                            );
                             self.clauses_qty += 1;
                         }
                     }
                     if row > 0 && column + 1 < self.game.max_column {
                         for neighbor in &self.game.tents_map[&(row - 1, column + 1)] {
-                            self.clauses
-                                .push_str(&format!("-{} -{} 0\n", tent_number, neighbor));
+                            self.clauses.push_str(
+                                &format!("-{} -{} 0\n", tent_number, neighbor),
+                            );
                             self.clauses_qty += 1;
                         }
                     }
@@ -469,10 +487,9 @@ impl SatMaker {
             for tent in &self.game.trees[tree_number].tents {
                 tent_numbers.push(tent.number);
             }
-            if tent_numbers.len()>0{
+            if tent_numbers.len() > 0 {
                 &self.exactly_n(1, tent_numbers);
-            }
-            else{
+            } else {
                 println!("UNSAT");
             }
         }
@@ -483,25 +500,29 @@ impl SatMaker {
                     tents_in_row.push(self.game.tents_map[&(row, column)].clone());
                 }
             }
-            //&self.exactly_n_from_pool(self.game.tents_in_rows[row], tents_in_row);
+            if self.version == 2 {
+                &self.exactly_n_from_pool(self.game.tents_in_rows[row], tents_in_row);
+            } else {
 
-            if self.game.tents_in_rows[row] == 0 {
-                for tents in tents_in_row {
-                    for tent in tents {
-                        self.clauses.push_str(&format!("-{} 0\n", tent));
+
+                if self.game.tents_in_rows[row] == 0 {
+                    for tents in tents_in_row {
+                        for tent in tents {
+                            self.clauses.push_str(&format!("-{} 0\n", tent));
+                            self.clauses_qty += 1;
+                        }
+                    }
+                } else if self.game.tents_in_rows[row] == tents_in_row.len() {
+                    for tents in tents_in_row {
+                        for tent in tents {
+                            self.clauses.push_str(&format!(" {}", tent));
+                        }
+                        self.clauses.push_str(&format!(" 0\n"));
                         self.clauses_qty += 1;
                     }
+                } else {
+                    self.encode_dfa(tents_in_row, self.game.tents_in_rows[row])
                 }
-            } else if self.game.tents_in_rows[row] == tents_in_row.len() {
-                for tents in tents_in_row {
-                    for tent in tents {
-                        self.clauses.push_str(&format!(" {}", tent));
-                    }
-                    self.clauses.push_str(&format!(" 0\n"));
-                    self.clauses_qty += 1;
-                }
-            } else {
-                self.encode_dfa(tents_in_row, self.game.tents_in_rows[row])
             }
         }
         for column in 0..self.game.max_column {
@@ -511,25 +532,29 @@ impl SatMaker {
                     tents_in_column.push(self.game.tents_map[&(row, column)].clone());
                 }
             }
-            //&self.exactly_n_from_pool(self.game.tents_in_columns[column], tents_in_column);
+            if self.version == 2 {
+                &self.exactly_n_from_pool(self.game.tents_in_columns[column], tents_in_column);
+            } else {
 
-            if self.game.tents_in_columns[column] == 0 {
-                for tents in tents_in_column {
-                    for tent in tents {
-                        self.clauses.push_str(&format!("-{} 0\n", tent));
+
+                if self.game.tents_in_columns[column] == 0 {
+                    for tents in tents_in_column {
+                        for tent in tents {
+                            self.clauses.push_str(&format!("-{} 0\n", tent));
+                            self.clauses_qty += 1;
+                        }
+                    }
+                } else if self.game.tents_in_columns[column] == tents_in_column.len() {
+                    for tents in tents_in_column {
+                        for tent in tents {
+                            self.clauses.push_str(&format!(" {}", tent));
+                        }
+                        self.clauses.push_str(&format!(" 0\n"));
                         self.clauses_qty += 1;
                     }
+                } else {
+                    self.encode_dfa(tents_in_column, self.game.tents_in_columns[column])
                 }
-            } else if self.game.tents_in_columns[column] == tents_in_column.len() {
-                for tents in tents_in_column {
-                    for tent in tents {
-                        self.clauses.push_str(&format!(" {}", tent));
-                    }
-                    self.clauses.push_str(&format!(" 0\n"));
-                    self.clauses_qty += 1;
-                }
-            } else {
-                self.encode_dfa(tents_in_column, self.game.tents_in_columns[column])
             }
         }
     }
@@ -573,10 +598,9 @@ impl SatMaker {
             );
             sol_content.push_str(" ");
         }
-        if tent_pos.len()==0{
+        if tent_pos.len() == 0 {
             println!("UNSAT")
-        }
-        else{
+        } else {
             println!("Tentmap:#~#{:?}#~#", tent_pos);
         }
         //self.find_unsat_clause();
@@ -604,20 +628,22 @@ impl SatMaker {
             } else {
                 self.clauses.push_str(&format!(" {}", k));
             }
-            k+=1;
+            k += 1;
         }
         self.clauses.push_str(" 0\n");
-        let claus_vec:Vec<&str>=self.clauses.split("\n").collect();
-        self.clauses=claus_vec[1..].join("\n");
+        let claus_vec: Vec<&str> = self.clauses.split("\n").collect();
+        self.clauses = claus_vec[1..].join("\n");
         self.clauses = format!(
             "p cnf {} {}\n{}",
-            self.game.variables_qty, self.clauses_qty, self.clauses
+            self.game.variables_qty,
+            self.clauses_qty,
+            self.clauses
         );
         self.solve_sat();
     }
 
-    fn find_unsat_clause(&self) {
-        let mut clause_list = self.clauses.split_whitespace();
+    fn _find_unsat_clause(&self) {
+        let clause_list = self.clauses.split_whitespace();
         let mut k = 0;
         let mut is_true = false;
         let mut clause_str = String::new();
