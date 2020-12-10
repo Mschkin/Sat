@@ -170,7 +170,7 @@ impl SatMaker {
         this
     }
     fn encode_dfa(&mut self,input:Vec<Vec<usize>>,max_tents:usize){
-        //self.clauses.push_str(&format!("new dfa with: {:?} {}\n",input,max_tents));
+        //println!("new dfa with: {:?} {}",input,max_tents);
         let mut number_dict=HashMap::<(usize, usize), usize>::new();
         let mut number_dict_return:usize;
         let mut number_dict_return2:usize;
@@ -455,6 +455,15 @@ impl SatMaker {
                     }
                 }
             }
+            else if self.game.tents_in_rows[row]==tents_in_row.len(){
+                for tents in tents_in_row{
+                    for tent in tents{
+                        self.clauses.push_str(&format!(" {}",tent));    
+                    }
+                    self.clauses.push_str(&format!(" 0\n"));
+                    self.clauses_qty+=1;
+                }
+            }
             else{
                 self.encode_dfa(tents_in_row,self.game.tents_in_rows[row])
             }   
@@ -475,6 +484,15 @@ impl SatMaker {
                         self.clauses.push_str(&format!("-{} 0\n",tent));
                         self.clauses_qty+=1;
                     }
+                }
+            }
+            else if self.game.tents_in_columns[column]==tents_in_column.len(){
+                for tents in tents_in_column{
+                    for tent in tents{
+                        self.clauses.push_str(&format!(" {}",tent));    
+                    }
+                    self.clauses.push_str(&format!(" 0\n"));
+                    self.clauses_qty+=1;
                 }
             }
             else{
@@ -549,6 +567,7 @@ impl SatMaker {
             else{
                 self.clauses.push_str(&format!(" {}",k));
             }
+            //k+=1;
         }
         self.clauses.push_str(" 0\n");
         self.solve_sat();
