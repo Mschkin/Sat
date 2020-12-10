@@ -182,27 +182,16 @@ class Game:
         return adjacent_cells
 
     def create_puzzel(self):
-        # if len(self.get_solution()) == 0:
-        #     self.render_message('UNSAT', RED)
-        #     pygame.display.update()
-        #     return
-        content = f'{self.rows} {self.columns}\n'
-        for row, cells in enumerate(self.cells):
-            content += ' '.join(['.' if cell.image_number == EMPTY_NUMBER or cell.image_number ==
-                                 TENT_NUMBER else 'T' for cell in cells]) + f' {self.tents_qty_in_rows[row]}\n'
-        content += ' '.join([str(n) for n in self.tents_qty_in_columns])
-        with open('src/tents.txt', 'w') as file:
-            file.write(content)
-        self.play_mode = True
-        self.solve_or_create_button = Button(
-            self.screen, (self.width - self.image_width - 80, self.image_width / 2), 80, 30, 'Solve')
-        self.reset_button = Button(
-            self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Reset')
+        if len(self.get_solution()) == 0:
+            self.render_message('UNSAT', RED)
+            pygame.display.update()
+            return
         for cells in self.cells:
             for cell in cells:
                 if cell.image_number == TENT_NUMBER:
                     cell.image_number = EMPTY_NUMBER
                     cell.draw_image()
+        self.save_puzzle_and_play()
         pygame.display.update()
 
     def generate_random_puzzle(self):
@@ -238,7 +227,22 @@ class Game:
             for cell in cells:
                 if cell.image_number == TREE_NUMBER:
                     cell.draw_image()
-        self.create_puzzel()
+        self.save_puzzle_and_play()
+        pygame.display.update()
+
+    def save_puzzle_and_play(self):
+        content = f'{self.rows} {self.columns}\n'
+        for row, cells in enumerate(self.cells):
+            content += ' '.join(['.' if cell.image_number == EMPTY_NUMBER or cell.image_number ==
+                                 TENT_NUMBER else 'T' for cell in cells]) + f' {self.tents_qty_in_rows[row]}\n'
+        content += ' '.join([str(n) for n in self.tents_qty_in_columns])
+        with open('src/tents.txt', 'w') as file:
+            file.write(content)
+        self.play_mode = True
+        self.solve_or_create_button = Button(
+            self.screen, (self.width - self.image_width - 80, self.image_width / 2), 80, 30, 'Solve')
+        self.reset_button = Button(
+            self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Reset')
 
     def solve_puzzle(self):
         solution = self.get_solution()
@@ -256,10 +260,12 @@ class Game:
         pygame.display.update()
 
     def get_solution(self):
-        solution = subprocess.run(
-            ['target/release/tents'], capture_output=True)
-        print(solution)
-        return eval(solution.stdout[:-1])
+        try:
+            solution = subprocess.run(
+                ['target/release/tents'], capture_output=True)
+            return eval(solution.stdout[:-1])
+        except:
+            return []
 
     def render_message(self, text, color):
         text = button_font.render(text, True, color)

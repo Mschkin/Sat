@@ -32,13 +32,12 @@ pub struct SatMaker {
     truth_values: Vec<bool>,
 }
 
-
 impl Game {
     fn new(path: &str) -> Self {
         let content: String = read_file(path);
         let content_clone = content.clone();
         let input: Vec<&str> = (&content_clone).split_whitespace().collect();
-        let formated=Game::format_properly(input);
+        let formated = Game::format_properly(input);
         let mut this = Self {
             trees: Vec::<Tree>::new(),
             max_column: formated[1].parse::<usize>().unwrap(),
@@ -135,17 +134,15 @@ impl Game {
         }
         neighbors
     }
-    fn format_properly(input:Vec<&str>)->Vec<String>{
-        let mut formated=Vec::<String>::new();
-        for i in &input{
-            let first_char=i.chars().next().unwrap();
-            if first_char=='T'||first_char=='.'{
-                for j in i.chars(){
-
+    fn format_properly(input: Vec<&str>) -> Vec<String> {
+        let mut formated = Vec::<String>::new();
+        for i in &input {
+            let first_char = i.chars().next().unwrap();
+            if first_char == 'T' || first_char == '.' {
+                for j in i.chars() {
                     formated.push(j.to_string());
                 }
-            }
-            else{
+            } else {
                 formated.push(i.to_string());
             }
         }
@@ -159,7 +156,7 @@ impl SatMaker {
             clauses: String::new(),
             game: Game::new(path),
             clauses_qty: 0,
-            truth_values:Vec::<bool>::new(),
+            truth_values: Vec::<bool>::new(),
         };
         &this.none_adjacent();
         &this.ensure_tent_qty_pools();
@@ -169,106 +166,145 @@ impl SatMaker {
         );
         this
     }
-    fn encode_dfa(&mut self,input:Vec<Vec<usize>>,max_tents:usize){
+    fn encode_dfa(&mut self, input: Vec<Vec<usize>>, max_tents: usize) {
         //println!("new dfa with: {:?} {}",input,max_tents);
-        let mut number_dict=HashMap::<(usize, usize), usize>::new();
-        let mut number_dict_return:usize;
-        let mut number_dict_return2:usize;
-        for tent_number in &input[0]{
-            number_dict_return=self.update_use_dict(&mut number_dict,(1,1));
-            &self.clauses.push_str(&format!("-{} {} 0\n",tent_number,number_dict_return));
-            self.clauses_qty+=1;
+        let mut number_dict = HashMap::<(usize, usize), usize>::new();
+        let mut number_dict_return: usize;
+        let mut number_dict_return2: usize;
+        for tent_number in &input[0] {
+            number_dict_return = self.update_use_dict(&mut number_dict, (1, 1));
+            &self
+                .clauses
+                .push_str(&format!("-{} {} 0\n", tent_number, number_dict_return));
+            self.clauses_qty += 1;
         }
-        for tent_number in &input[0]{
-            &self.clauses.push_str(&format!("{} ",tent_number));
+        for tent_number in &input[0] {
+            &self.clauses.push_str(&format!("{} ", tent_number));
         }
-        number_dict_return=self.update_use_dict(&mut number_dict,(1,0));
-        &self.clauses.push_str(&format!("{} 0\n",number_dict_return));
-        self.clauses_qty+=1;
-       
-        for step in 1..input.len()-1{
-            for tent_until in 0..max_tents+1{
-                if number_dict.contains_key(&(step,tent_until)){
-                    if input.len()-step!=max_tents-tent_until{
-                        for tent_number in &input[step]{
-                            &self.clauses.push_str(&format!("{} ",tent_number));
-                        }
-                        number_dict_return=self.update_use_dict(&mut number_dict,(step+1,tent_until));
-                        number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
-                        &self.clauses.push_str(&format!("{} -{} 0\n",number_dict_return,number_dict_return2));
-                        self.clauses_qty+=1;
-                        for tent_number in &input[step]{
-                            &self.clauses.push_str(&format!("{} ",tent_number));
-                        }
-                        number_dict_return=self.update_use_dict(&mut number_dict,(step+1,tent_until));
-                        number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
-                        &self.clauses.push_str(&format!("-{} {} 0\n",number_dict_return,number_dict_return2));
-                        self.clauses_qty+=1;
-                    }
-                    else{
-                        for tent_number in &input[step]{
-                            &self.clauses.push_str(&format!("{} ",tent_number));
-                        }
-                        number_dict_return=self.update_use_dict(&mut number_dict,(step,tent_until));
-                        &self.clauses.push_str(&format!("-{} 0\n",number_dict_return));
-                        self.clauses_qty+=1;
+        number_dict_return = self.update_use_dict(&mut number_dict, (1, 0));
+        &self
+            .clauses
+            .push_str(&format!("{} 0\n", number_dict_return));
+        self.clauses_qty += 1;
 
+        for step in 1..input.len() - 1 {
+            for tent_until in 0..max_tents + 1 {
+                if number_dict.contains_key(&(step, tent_until)) {
+                    if input.len() - step != max_tents - tent_until {
+                        for tent_number in &input[step] {
+                            &self.clauses.push_str(&format!("{} ", tent_number));
+                        }
+                        number_dict_return =
+                            self.update_use_dict(&mut number_dict, (step + 1, tent_until));
+                        number_dict_return2 =
+                            self.update_use_dict(&mut number_dict, (step, tent_until));
+                        &self.clauses.push_str(&format!(
+                            "{} -{} 0\n",
+                            number_dict_return, number_dict_return2
+                        ));
+                        self.clauses_qty += 1;
+                        for tent_number in &input[step] {
+                            &self.clauses.push_str(&format!("{} ", tent_number));
+                        }
+                        number_dict_return =
+                            self.update_use_dict(&mut number_dict, (step + 1, tent_until));
+                        number_dict_return2 =
+                            self.update_use_dict(&mut number_dict, (step, tent_until));
+                        &self.clauses.push_str(&format!(
+                            "-{} {} 0\n",
+                            number_dict_return, number_dict_return2
+                        ));
+                        self.clauses_qty += 1;
+                    } else {
+                        for tent_number in &input[step] {
+                            &self.clauses.push_str(&format!("{} ", tent_number));
+                        }
+                        number_dict_return =
+                            self.update_use_dict(&mut number_dict, (step, tent_until));
+                        &self
+                            .clauses
+                            .push_str(&format!("-{} 0\n", number_dict_return));
+                        self.clauses_qty += 1;
                     }
-                    if tent_until<max_tents{
-                        for tent_number in &input[step]{
-                            number_dict_return=self.update_use_dict(&mut number_dict,(step+1,tent_until+1));
-                            number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
-                            &self.clauses.push_str(&format!("-{} {} -{} 0\n",tent_number,number_dict_return,number_dict_return2));
-                            &self.clauses.push_str(&format!("-{} -{} {} 0\n",tent_number,number_dict_return,number_dict_return2));
-                            self.clauses_qty+=2;
+                    if tent_until < max_tents {
+                        for tent_number in &input[step] {
+                            number_dict_return =
+                                self.update_use_dict(&mut number_dict, (step + 1, tent_until + 1));
+                            number_dict_return2 =
+                                self.update_use_dict(&mut number_dict, (step, tent_until));
+                            &self.clauses.push_str(&format!(
+                                "-{} {} -{} 0\n",
+                                tent_number, number_dict_return, number_dict_return2
+                            ));
+                            &self.clauses.push_str(&format!(
+                                "-{} -{} {} 0\n",
+                                tent_number, number_dict_return, number_dict_return2
+                            ));
+                            self.clauses_qty += 2;
                         }
                     }
                 }
             }
             let mut bools_per_step = Vec::<usize>::new();
-            for (pos,bool_number) in number_dict.iter(){
-                if pos.0==step{
+            for (pos, bool_number) in number_dict.iter() {
+                if pos.0 == step {
                     bools_per_step.push(*bool_number);
                 }
             }
             self.not_two(bools_per_step);
         }
-        &self.clauses.push_str(&format!("-{} ",number_dict.get(&(input.len()-1,max_tents-1)).unwrap()));
-        for tent_number in &input[input.len()-1]{
-            self.clauses.push_str(&format!("{} ",tent_number));
+        &self.clauses.push_str(&format!(
+            "-{} ",
+            number_dict.get(&(input.len() - 1, max_tents - 1)).unwrap()
+        ));
+        for tent_number in &input[input.len() - 1] {
+            self.clauses.push_str(&format!("{} ", tent_number));
         }
         &self.clauses.push_str(&"0\n");
-        self.clauses_qty+=1;
-        
-        for tent_number in &input[input.len()-1]{
-            &self.clauses.push_str(&format!("-{} -{} 0\n",number_dict.get(&(input.len()-1,max_tents)).unwrap(),tent_number));
-            self.clauses_qty+=1;
+        self.clauses_qty += 1;
+
+        for tent_number in &input[input.len() - 1] {
+            &self.clauses.push_str(&format!(
+                "-{} -{} 0\n",
+                number_dict.get(&(input.len() - 1, max_tents)).unwrap(),
+                tent_number
+            ));
+            self.clauses_qty += 1;
         }
-        &self.clauses.push_str(&format!("-{} -{} 0\n",number_dict.get(&(input.len()-1,max_tents-1)).unwrap(),
-                                                     number_dict.get(&(input.len()-1,max_tents)).unwrap()));
-        self.clauses_qty+=1;
+        &self.clauses.push_str(&format!(
+            "-{} -{} 0\n",
+            number_dict.get(&(input.len() - 1, max_tents - 1)).unwrap(),
+            number_dict.get(&(input.len() - 1, max_tents)).unwrap()
+        ));
+        self.clauses_qty += 1;
     }
 
-    fn not_two(&mut self,bools_per_step:Vec<usize>){
-        for i in 0..bools_per_step.len(){
-            for j in i+1..bools_per_step.len(){
-                self.clauses.push_str(&format!("-{} -{} 0\n",bools_per_step[i],bools_per_step[j]));
-                self.clauses_qty+=1;
+    fn not_two(&mut self, bools_per_step: Vec<usize>) {
+        for i in 0..bools_per_step.len() {
+            for j in i + 1..bools_per_step.len() {
+                self.clauses.push_str(&format!(
+                    "-{} -{} 0\n",
+                    bools_per_step[i], bools_per_step[j]
+                ));
+                self.clauses_qty += 1;
             }
         }
-        for i in bools_per_step{
-            self.clauses.push_str(&format!("{} ",i));
+        for i in bools_per_step {
+            self.clauses.push_str(&format!("{} ", i));
         }
         self.clauses.push_str("0\n");
-        self.clauses_qty+=1;
+        self.clauses_qty += 1;
     }
-    fn update_use_dict(& mut self,mut number_dict:&mut HashMap<(usize, usize),usize>,pos:(usize,usize))->usize{
-        if number_dict.contains_key(&pos){
+    fn update_use_dict(
+        &mut self,
+        mut number_dict: &mut HashMap<(usize, usize), usize>,
+        pos: (usize, usize),
+    ) -> usize {
+        if number_dict.contains_key(&pos) {
             *number_dict.get(&pos).unwrap()
-        }
-        else{
-            self.game.variables_qty+=1;
-            number_dict.insert(pos,self.game.variables_qty);
+        } else {
+            self.game.variables_qty += 1;
+            number_dict.insert(pos, self.game.variables_qty);
             self.game.variables_qty
         }
     }
@@ -296,33 +332,30 @@ impl SatMaker {
         }
         res_old
     }
-    
-    fn choose_from_pool(&mut self,pools: Vec<Vec<usize>>, mut k: usize,with_not:bool) {
+
+    fn choose_from_pool(&mut self, pools: Vec<Vec<usize>>, mut k: usize, with_not: bool) {
         let mut pool_choice = Vec::<Vec<usize>>::new();
-        let combinations = Self::n_choose_k(pools.len(),k);
-        let mut teststr=String::new();
+        let combinations = Self::n_choose_k(pools.len(), k);
+        let mut teststr = String::new();
         for combi in combinations {
-            teststr="".to_string();
+            teststr = "".to_string();
             pool_choice.clear();
             for i in &combi {
                 pool_choice.push(pools[*i].clone());
             }
-            if with_not{
-                for claus in &pool_choice{
-                    for number in claus{
+            if with_not {
+                for claus in &pool_choice {
+                    for number in claus {
                         self.clauses.push_str(&format!("-{} ", number));
                         //teststr.push_str(&format!("-{} ", number));
                     }
-
                 }
                 self.clauses.push_str("0\n");
                 self.clauses_qty += 1;
-                //println!("{:?}  {:?}  {}",combi,pool_choice,teststr)
-                
-            }
-            else{
-                for claus in &pool_choice{
-                    for number in claus{
+            //println!("{:?}  {:?}  {}",combi,pool_choice,teststr)
+            } else {
+                for claus in &pool_choice {
+                    for number in claus {
                         self.clauses.push_str(&format!("{} ", number));
                         //teststr.push_str(&format!("{} ", number));
                     }
@@ -334,8 +367,8 @@ impl SatMaker {
         }
     }
     fn exactly_n_from_pool(&mut self, n: usize, pools: Vec<Vec<usize>>) {
-        self.choose_from_pool(pools.clone(),n+1,true);
-        self.choose_from_pool(pools.clone(),pools.len()-n+1,false);
+        self.choose_from_pool(pools.clone(), n + 1, true);
+        self.choose_from_pool(pools.clone(), pools.len() - n + 1, false);
     }
 
     fn exactly_n(&mut self, n: usize, tent_numbers: Vec<usize>) {
@@ -441,68 +474,62 @@ impl SatMaker {
         for row in 0..self.game.max_row {
             let mut tents_in_row = Vec::<Vec<usize>>::new();
             for column in 0..self.game.max_column {
-                if self.game.tents_map[&(row, column)].len()>0{
-                    tents_in_row.push(self.game.tents_map[&(row, column)].clone());  
-                }         
+                if self.game.tents_map[&(row, column)].len() > 0 {
+                    tents_in_row.push(self.game.tents_map[&(row, column)].clone());
+                }
             }
             //&self.exactly_n_from_pool(self.game.tents_in_rows[row], tents_in_row);
-            
-            if self.game.tents_in_rows[row]==0{
-                for tents in tents_in_row{
-                    for tent in tents{
-                        self.clauses.push_str(&format!("-{} 0\n",tent));
-                        self.clauses_qty+=1;
+
+            if self.game.tents_in_rows[row] == 0 {
+                for tents in tents_in_row {
+                    for tent in tents {
+                        self.clauses.push_str(&format!("-{} 0\n", tent));
+                        self.clauses_qty += 1;
                     }
                 }
-            }
-            else if self.game.tents_in_rows[row]==tents_in_row.len(){
-                for tents in tents_in_row{
-                    for tent in tents{
-                        self.clauses.push_str(&format!(" {}",tent));    
+            } else if self.game.tents_in_rows[row] == tents_in_row.len() {
+                for tents in tents_in_row {
+                    for tent in tents {
+                        self.clauses.push_str(&format!(" {}", tent));
                     }
                     self.clauses.push_str(&format!(" 0\n"));
-                    self.clauses_qty+=1;
+                    self.clauses_qty += 1;
                 }
+            } else {
+                self.encode_dfa(tents_in_row, self.game.tents_in_rows[row])
             }
-            else{
-                self.encode_dfa(tents_in_row,self.game.tents_in_rows[row])
-            }   
-            
         }
         for column in 0..self.game.max_column {
             let mut tents_in_column = Vec::<Vec<usize>>::new();
             for row in 0..self.game.max_row {
-                if self.game.tents_map[&(row, column)].len()>0{
-                    tents_in_column.push(self.game.tents_map[&(row, column)].clone());  
+                if self.game.tents_map[&(row, column)].len() > 0 {
+                    tents_in_column.push(self.game.tents_map[&(row, column)].clone());
                 }
             }
             //&self.exactly_n_from_pool(self.game.tents_in_columns[column], tents_in_column);
-            
-            if self.game.tents_in_columns[column]==0{
-                for tents in tents_in_column{
-                    for tent in tents{
-                        self.clauses.push_str(&format!("-{} 0\n",tent));
-                        self.clauses_qty+=1;
+
+            if self.game.tents_in_columns[column] == 0 {
+                for tents in tents_in_column {
+                    for tent in tents {
+                        self.clauses.push_str(&format!("-{} 0\n", tent));
+                        self.clauses_qty += 1;
                     }
                 }
-            }
-            else if self.game.tents_in_columns[column]==tents_in_column.len(){
-                for tents in tents_in_column{
-                    for tent in tents{
-                        self.clauses.push_str(&format!(" {}",tent));    
+            } else if self.game.tents_in_columns[column] == tents_in_column.len() {
+                for tents in tents_in_column {
+                    for tent in tents {
+                        self.clauses.push_str(&format!(" {}", tent));
                     }
                     self.clauses.push_str(&format!(" 0\n"));
-                    self.clauses_qty+=1;
+                    self.clauses_qty += 1;
                 }
+            } else {
+                self.encode_dfa(tents_in_column, self.game.tents_in_columns[column])
             }
-            else{
-                self.encode_dfa(tents_in_column,self.game.tents_in_columns[column])
-            }
-            
         }
     }
 
-    pub fn solve_sat(&mut self){
+    pub fn solve_sat(&mut self) {
         write_file("src/tents_encoded.cnf", &self.clauses);
         let cmd = std::process::Command::new("cadical-sc2020-45029f8/build/cadical")
             .args(&["-q", "src/tents_encoded.cnf"])
@@ -518,7 +545,7 @@ impl SatMaker {
         sol_content.push_str(" ");
         sol_content.push_str(&game_content[1]);
         sol_content.push_str("\n");
-        let mut tent_pos=Vec::<(usize,usize)>::new();
+        let mut tent_pos = Vec::<(usize, usize)>::new();
         for row in 0..self.game.max_row {
             for column in 0..self.game.max_column {
                 let mut is_tent = false;
@@ -527,7 +554,7 @@ impl SatMaker {
                 }
                 if is_tent {
                     game_content[2 + (self.game.max_column + 1) * row + column] = "X".to_string();
-                    tent_pos.push((row,column));
+                    tent_pos.push((row, column));
                 }
                 sol_content.push_str(&game_content[2 + (self.game.max_column + 1) * row + column]);
                 sol_content.push_str(" ");
@@ -536,8 +563,9 @@ impl SatMaker {
             sol_content.push_str("\n");
         }
         for column in 0..self.game.max_column {
-            sol_content
-                .push_str(&game_content[2 + (self.game.max_column + 1) * self.game.max_row + column]);
+            sol_content.push_str(
+                &game_content[2 + (self.game.max_column + 1) * self.game.max_row + column],
+            );
             sol_content.push_str(" ");
         }
         println!("{:?}", tent_pos);
@@ -557,15 +585,14 @@ impl SatMaker {
         }
         truth_values
     }
-    pub fn unique_check(&mut self){
-        let mut k=1;
-        self.clauses_qty+=1;
-        for t in &self.truth_values{
-            if *t{
-                self.clauses.push_str(&format!(" -{}",k));
-            }
-            else{
-                self.clauses.push_str(&format!(" {}",k));
+    pub fn unique_check(&mut self) {
+        let mut k = 1;
+        self.clauses_qty += 1;
+        for t in &self.truth_values {
+            if *t {
+                self.clauses.push_str(&format!(" -{}", k));
+            } else {
+                self.clauses.push_str(&format!(" {}", k));
             }
             //k+=1;
         }
@@ -573,32 +600,29 @@ impl SatMaker {
         self.solve_sat();
     }
 
-    fn find_unsat_clause(&self){
-        let mut clause_list =self.clauses.split_whitespace();
-        let mut k=0;
-        let mut is_true=false;
-        let mut clause_str=String::new();
-        for i in clause_list{
-            if 3<k{
+    fn find_unsat_clause(&self) {
+        let mut clause_list = self.clauses.split_whitespace();
+        let mut k = 0;
+        let mut is_true = false;
+        let mut clause_str = String::new();
+        for i in clause_list {
+            if 3 < k {
                 let j = i.parse::<i32>().unwrap();
-                clause_str.push_str(&format!("{} ",i));
-                if j>0{
-                    is_true=is_true||self.truth_values[(j-1) as usize];
-                }
-                else if j<0{
-                    is_true=is_true||!self.truth_values[(-j-1) as usize];
-                }
-                else{
-                    if !is_true{
-                        println!("{} {}",is_true,clause_str);
+                clause_str.push_str(&format!("{} ", i));
+                if j > 0 {
+                    is_true = is_true || self.truth_values[(j - 1) as usize];
+                } else if j < 0 {
+                    is_true = is_true || !self.truth_values[(-j - 1) as usize];
+                } else {
+                    if !is_true {
+                        println!("{} {}", is_true, clause_str);
                     }
                     clause_str.clear();
-                    is_true=false;
+                    is_true = false;
                 }
             }
-            k+=1;
+            k += 1;
         }
-        
     }
 }
 

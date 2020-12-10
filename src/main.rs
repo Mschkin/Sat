@@ -1,8 +1,5 @@
 mod tents;
-use std::time:: Instant;
-
-
-
+use std::time::Instant;
 
 fn main() {
     let start = Instant::now();
@@ -15,4 +12,3 @@ fn main() {
     let duration1 = start.elapsed();
     //println!("solving time: {:?}", duration1-duration);
 }
-
