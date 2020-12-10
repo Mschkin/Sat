@@ -21,12 +21,12 @@ class Game:
     image_width = 32
     header_width = 32
     block_width = image_width + grid_width
-    tents_qty_in_rows = []
-    tents_qty_in_columns = []
 
     def __init__(self, rows, columns, play_mode=False, cells_content=[]):
         self.rows = rows
         self.columns = columns
+        self.tents_qty_in_rows = [0]*self.rows
+        self.tents_qty_in_columns = [0]*self.columns
         self.play_mode = play_mode
         self.width = self.image_width+(columns + 1) * self.block_width
         self.height = self.header_width + \
@@ -37,22 +37,27 @@ class Game:
         if not play_mode:
             self.cells = [[Cell(self.screen, (i, j), self.index_to_position((i, j)), EMPTY_NUMBER, self.image_width)
                            for j in range(self.columns)] for i in range(self.rows)]
+            for i in range(self.rows):
+                self.draw_tents_qty_in_row(i, 0)
+            for j in range(self.columns):
+                self.draw_tents_qty_in_column(j, 0)
+            self.solve_or_create_button = Button(
+                self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Create')
         else:
             self.cells = [[Cell(self.screen, (i, j), self.index_to_position((i, j)), cells_content[i][j], self.image_width)
                            for j in range(self.columns)] for i in range(self.rows)]
             for index_row, row in enumerate(cells_content[:-1]):
-                self.tents_qty_in_rows.append(row[-1])
+                self.tents_qty_in_rows[index_row] = row[-1]
                 self.draw_tents_qty_in_row(index_row, row[-1])
             for index_column, number in enumerate(cells_content[-1]):
-                self.tents_qty_in_columns.append(number)
+                self.tents_qty_in_columns[index_column] = number
                 self.draw_tents_qty_in_column(index_column, number)
+            self.reset_button = Button(
+                self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Reset')
+            self.solve_or_create_button = Button(
+                self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Solve')
         self.back_button = Button(
             self.screen, (self.image_width, self.image_width / 2), 80, 30, 'Back')
-        if not play_mode:
-            self.create_button = Button(
-                self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Create')
-        self.solve_button = Button(
-            self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Solve')
         pygame.display.set_caption(
             'Create game') if not play_mode else pygame.display.set_caption('Play game')
         pygame.display.update()
@@ -98,8 +103,11 @@ class Game:
                 cell_in_column.draw_image()
         if not self.play_mode:
             tents_qty = self.get_current_tents_qty(cell_index)
+            self.tents_qty_in_rows[cell_index[0]] = tents_qty[0]
+            self.tents_qty_in_columns[cell_index[1]] = tents_qty[1]
             self.draw_tents_qty_in_row(cell_index[0], tents_qty[0])
-            self.draw_tents_qty_in_column(cell_index[1], tents_qty[1])
+            self.draw_tents_qty_in_column(
+                cell_index[1], tents_qty[1])
         pygame.display.update()
 
     def get_current_tents_qty(self, cell_index):
@@ -172,9 +180,63 @@ class Game:
                         self.cells[cell.index[0] + i][cell.index[1] + j])
         return adjacent_cells
 
+    def create_puzzel(self):
+        if len(self.get_solution()) == 0:
+            self.render_message('UNSAT', RED)
+            pygame.display.update()
+            return
+        content = f'{self.rows} {self.columns}\n'
+        for row, cells in enumerate(self.cells):
+            content += ' '.join(['.' if cell.image_number == EMPTY_NUMBER or cell.image_number ==
+                                 TENT_NUMBER else 'T' for cell in cells]) + f' {self.tents_qty_in_rows[row]}\n'
+        content += ' '.join([str(n) for n in self.tents_qty_in_columns])
+        with open('src/tents.txt', 'w') as file:
+            file.write(content)
+        self.play_mode = True
+        self.solve_or_create_button = Button(
+            self.screen, (self.width - self.image_width - 80, self.image_width / 2), 80, 30, 'Solve')
+        for cells in self.cells:
+            for cell in cells:
+                if cell.image_number == TENT_NUMBER:
+                    cell.image_number = EMPTY_NUMBER
+                    cell.draw_image()
+        pygame.display.update()
+
     def solve_puzzle(self):
-        result = subprocess.run(['target/release/sat'], capture_output=True)
-        print(result)
+        solution = self.get_solution()
+        if len(solution) > 0:
+            self.reset_game()
+            for index in solution:
+                cell = self.cells[index[0]][index[1]]
+                cell.image_number = TENT_NUMBER
+                cell.draw_image()
+        else:
+            self.render_message('UNSAT', RED)
+        pygame.display.update()
+
+    def get_solution(self):
+        solution = subprocess.run(
+            ['target/release/tents'], capture_output=True)
+        return eval(solution.stdout[:-1])
+
+    def render_message(self, text, color):
+        text = button_font.render(text, True, color)
+        rect = text.get_rect()
+        rect.center = (self.width/2, self.height/2)
+        self.screen.blit(text, rect)
+
+    def reset_game(self):
+        # remove tents and redraw unvalid cells
+        for cells in self.cells:
+            for cell in cells:
+                if cell.image_number == TENT_NUMBER:
+                    cell.image_number = EMPTY_NUMBER
+                    if not cell.is_valid:
+                        cell.is_valid = True
+                    cell.draw_image()
+                elif not cell.is_valid:
+                    cell.is_valid = True
+                    cell.draw_image()
 
 
 class Cell:
@@ -233,6 +295,9 @@ class Menu:
 
     def load_game(self, file_path):
         with open(file_path) as file:
+            file = list(file)
+            with open('src/tents.txt', 'w') as new_file:
+                new_file.write(''.join(file))
             contents = [[n.rstrip() for n in line.split(' ')] for line in file]
         rows, columns = contents[0]
         contents_new = []
@@ -322,12 +387,18 @@ def main():
     while run_menu or run_game:
         while run_menu:
             for button in [menu.generate_manu_button, menu.generate_auto_button, menu.load_game_button]:
+                change_hover = False
                 if button.rect.collidepoint(pygame.mouse.get_pos()):  # on hover
-                    button.hovered = True
+                    if not button.hovered:
+                        button.hovered = True
+                        change_hover = True
                 else:
-                    button.hovered = False
-                button.draw_button()
-            pygame.display.update()
+                    if button.hovered:
+                        button.hovered = False
+                        change_hover = True
+                if change_hover:
+                    button.draw_button()
+                    pygame.display.update()
             # Handle events
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONUP:
@@ -384,8 +455,14 @@ def main():
                         menu = Menu()
                         run_game = False
                         run_menu = True
-                    elif game.solve_button.rect.collidepoint(position):
-                        game.solve_puzzle()
+                    elif game.solve_or_create_button.rect.collidepoint(position):
+                        if game.play_mode:
+                            game.solve_puzzle()
+                        else:  # create
+                            game.create_puzzel()
+                    elif game.play_mode and game.reset_button.rect.collidepoint(position):
+                        game.reset_game()
+                        pygame.display.update()
                     else:
                         game.change_cell(position)
                 elif event.type == pygame.QUIT:
