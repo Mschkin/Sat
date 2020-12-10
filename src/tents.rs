@@ -603,6 +603,7 @@ impl SatMaker {
         } else {
             println!("Tentmap:#~#{:?}#~#", tent_pos);
         }
+        println!("{}",sol_content);
         //self.find_unsat_clause();
     }
 
