@@ -153,7 +153,7 @@ impl Game {
 impl SatMaker {
     pub fn new(path: &str) -> Self {
         let mut this = Self {
-            version: 1,
+            version: 3,
             clauses: String::new(),
             game: Game::new(path),
             clauses_qty: 0,
