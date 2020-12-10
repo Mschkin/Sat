@@ -6,7 +6,12 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     //println!("{:?}", args);
     //let start = Instant::now();
-    let mut sat_maker = tents::SatMaker::new(&args[1]);
+    let mut sat_maker:tents::SatMaker;
+    if args.len() == 1 {
+        sat_maker = tents::SatMaker::new("src/tents.txt");
+    } else {
+        sat_maker = tents::SatMaker::new(&args[1]);
+    }
     //let mut duration = start.elapsed();
     //println!("encoding time: {:?}", duration);
     sat_maker.solve_sat();
