@@ -197,13 +197,30 @@ impl SatMaker {
                         number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
                         &self.clauses.push_str(&format!("{} -{} 0\n",number_dict_return,number_dict_return2));
                         self.clauses_qty+=1;
+                        for tent_number in &input[step]{
+                            &self.clauses.push_str(&format!("{} ",tent_number));
+                        }
+                        number_dict_return=self.update_use_dict(&mut number_dict,(step+1,tent_until));
+                        number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
+                        &self.clauses.push_str(&format!("-{} {} 0\n",number_dict_return,number_dict_return2));
+                        self.clauses_qty+=1;
+                    }
+                    else{
+                        for tent_number in &input[step]{
+                            &self.clauses.push_str(&format!("{} ",tent_number));
+                        }
+                        number_dict_return=self.update_use_dict(&mut number_dict,(step,tent_until));
+                        &self.clauses.push_str(&format!("-{} 0\n",number_dict_return));
+                        self.clauses_qty+=1;
+
                     }
                     if tent_until<max_tents{
                         for tent_number in &input[step]{
                             number_dict_return=self.update_use_dict(&mut number_dict,(step+1,tent_until+1));
                             number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
                             &self.clauses.push_str(&format!("-{} {} -{} 0\n",tent_number,number_dict_return,number_dict_return2));
-                            self.clauses_qty+=1;
+                            &self.clauses.push_str(&format!("-{} -{} {} 0\n",tent_number,number_dict_return,number_dict_return2));
+                            self.clauses_qty+=2;
                         }
                     }
                 }
@@ -239,6 +256,11 @@ impl SatMaker {
                 self.clauses_qty+=1;
             }
         }
+        for i in bools_per_step{
+            self.clauses.push_str(&format!("{} ",i));
+        }
+        self.clauses.push_str("0\n");
+        self.clauses_qty+=1;
     }
     fn update_use_dict(& mut self,mut number_dict:&mut HashMap<(usize, usize),usize>,pos:(usize,usize))->usize{
         if number_dict.contains_key(&pos){
@@ -428,11 +450,10 @@ impl SatMaker {
             if self.game.tents_in_rows[row]==0{
                 for tents in tents_in_row{
                     for tent in tents{
-                        self.clauses.push_str(&format!("-{} ",tent));
+                        self.clauses.push_str(&format!("-{} 0\n",tent));
+                        self.clauses_qty+=1;
                     }
                 }
-                self.clauses.push_str("0\n");
-                self.clauses_qty+=1;
             }
             else{
                 self.encode_dfa(tents_in_row,self.game.tents_in_rows[row])
@@ -451,11 +472,10 @@ impl SatMaker {
             if self.game.tents_in_columns[column]==0{
                 for tents in tents_in_column{
                     for tent in tents{
-                        self.clauses.push_str(&format!("-{} ",tent));
+                        self.clauses.push_str(&format!("-{} 0\n",tent));
+                        self.clauses_qty+=1;
                     }
                 }
-                self.clauses.push_str("0\n");
-                self.clauses_qty+=1;
             }
             else{
                 self.encode_dfa(tents_in_column,self.game.tents_in_columns[column])

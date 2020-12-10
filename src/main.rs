@@ -11,6 +11,7 @@ fn main() {
     let mut duration = start.elapsed();
     //println!("encoding time: {:?}", duration);
     sat_maker.solve_sat();
+    //sat_maker.unique_check();
     let duration1 = start.elapsed();
     //println!("solving time: {:?}", duration1-duration);
 }
