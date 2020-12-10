@@ -206,15 +206,22 @@ class Game:
     def generate_random_puzzle(self):
         possible_tents = list(range(self.rows * self.columns))
         while len(possible_tents) > 0:
-            next_tent = np.random.randint(len(possible_tents))
-            next_cell = self.cells[possible_tents[next_tent] //
-                                   self.columns][possible_tents[next_tent] % self.columns]
-            next_cell.image_number = TENT_NUMBER
+            next_tent_number = np.random.randint(len(possible_tents))
+            next_cell = self.cells[possible_tents[next_tent_number] //
+                                   self.columns][possible_tents[next_tent_number] % self.columns]
+            possible_trees = []
             for cell in self.get_adjacent_cells(next_cell):
-                possible_tents.remove(
-                    cell.index[0] * self.columns + cell.index[1])
+                if cell.index[0] * self.columns + cell.index[1] in possible_tents:
+                    possible_tents.remove(
+                        cell.index[0] * self.columns + cell.index[1])
                 if cell.index[0] == next_cell.index[0] or cell.index[1] == next_cell.index[1]:
-                    cell.image_number = TREE_NUMBER
+                    if cell.image_number != TREE_NUMBER:
+                        possible_trees.append(cell)
+            if len(possible_trees) > 0:
+                possible_trees[np.random.randint(
+                    len(possible_trees))].image_number = TREE_NUMBER
+                next_cell.image_number = TENT_NUMBER
+            possible_trees.remove(next_tent_number)
         for row in range(self.rows):
             self.tents_qty_in_rows[row] = len(
                 [i for i in self.cells[row] if i.image_number == TENT_NUMBER])
