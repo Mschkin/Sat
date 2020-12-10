@@ -212,6 +212,9 @@ class Game:
                 cell.draw_image()
         else:
             self.render_message('UNSAT', RED)
+        if self.validate_solution():
+            self.render_message('SAT', GREEN)
+            print('SAT')
         pygame.display.update()
 
     def get_solution(self):
@@ -237,6 +240,15 @@ class Game:
                 elif not cell.is_valid:
                     cell.is_valid = True
                     cell.draw_image()
+
+    def validate_solution(self):
+        for row in range(self.rows):
+            if len([i for i in self.cells[row] if i.image_number == TENT_NUMBER]) != self.tents_qty_in_rows[row]:
+                return False
+        for column in range(self.columns):
+            if len([i for i in range(self.rows) if self.cells[i][column].image_number == TENT_NUMBER]) != self.tents_qty_in_columns[column]:
+                return False
+        return True
 
 
 class Cell:
