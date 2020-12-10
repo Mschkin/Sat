@@ -175,22 +175,28 @@ impl SatMaker {
         let mut number_dict_return:usize;
         let mut number_dict_return2:usize;
         for tent_number in &input[0]{
-            number_dict_return=self.update_use_dict(&mut number_dict,(1,0));
-            &self.clauses.push_str(&format!("{} {} 0\n",tent_number,number_dict_return));
             number_dict_return=self.update_use_dict(&mut number_dict,(1,1));
             &self.clauses.push_str(&format!("-{} {} 0\n",tent_number,number_dict_return));
-            self.clauses_qty+=2;
+            self.clauses_qty+=1;
         }
+        for tent_number in &input[0]{
+            &self.clauses.push_str(&format!("{} ",tent_number));
+        }
+        number_dict_return=self.update_use_dict(&mut number_dict,(1,0));
+        &self.clauses.push_str(&format!("{} 0\n",number_dict_return));
+        self.clauses_qty+=1;
+       
         for step in 1..input.len()-1{
             for tent_until in 0..max_tents+1{
                 if number_dict.contains_key(&(step,tent_until)){
                     if input.len()-step!=max_tents-tent_until{
                         for tent_number in &input[step]{
-                            number_dict_return=self.update_use_dict(&mut number_dict,(step+1,tent_until));
-                            number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
-                            &self.clauses.push_str(&format!("{} {} -{} 0\n",tent_number,number_dict_return,number_dict_return2));
-                            self.clauses_qty+=1;
+                            &self.clauses.push_str(&format!("{} ",tent_number));
                         }
+                        number_dict_return=self.update_use_dict(&mut number_dict,(step+1,tent_until));
+                        number_dict_return2=self.update_use_dict(&mut number_dict,(step,tent_until));
+                        &self.clauses.push_str(&format!("{} -{} 0\n",number_dict_return,number_dict_return2));
+                        self.clauses_qty+=1;
                     }
                     if tent_until<max_tents{
                         for tent_number in &input[step]{
@@ -466,7 +472,7 @@ impl SatMaker {
             .expect("failed to execute process");
         let sol = cmd.stdout;
         let res = format!("{}", String::from_utf8_lossy(&sol));
-        println!("{}",res);
+        //println!("{}",res);
         self.truth_values = self.convert_to_true(res);
         let game_content = &mut self.game.content;
         let mut sol_content = String::new();
@@ -496,7 +502,7 @@ impl SatMaker {
                 .push_str(&game_content[2 + (self.game.max_column + 1) * self.game.max_row + column]);
             sol_content.push_str(" ");
         }
-        println!("{}", sol_content);
+        println!("{:?}", tent_pos);
         //self.find_unsat_clause();
     }
 
