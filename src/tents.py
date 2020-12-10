@@ -255,7 +255,7 @@ class Game:
         else:
             self.render_message('UNSAT', RED)
         if self.validate_solution():
-            self.render_message('SAT', GREEN)
+            # self.render_message('SAT', GREEN)
             print('SAT')
         pygame.display.update()
 
