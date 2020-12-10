@@ -181,7 +181,9 @@ class Game:
         return adjacent_cells
 
     def create_puzzel(self):
-        if not self.is_puzzel_valid():
+        if len(self.get_solution()) == 0:
+            self.render_message('UNSAT', RED)
+            pygame.display.update()
             return
         content = f'{self.rows} {self.columns}\n'
         for row, cells in enumerate(self.cells):
@@ -200,28 +202,28 @@ class Game:
                     cell.draw_image()
         pygame.display.update()
 
-    def is_puzzel_valid(self):
-        for cells in self.cells:
-            for cell in cells:
-                if not cell.is_valid:
-                    return False
-        return True
-
     def solve_puzzle(self):
-        result = subprocess.run(['target/release/tents'], capture_output=True)
-        result = eval(result.stdout[:-1])
-        if len(result) > 0:
+        solution = self.get_solution()
+        if len(solution) > 0:
             self.reset_game()
-            for index in result:
+            for index in solution:
                 cell = self.cells[index[0]][index[1]]
                 cell.image_number = TENT_NUMBER
                 cell.draw_image()
         else:
-            text = button_font.render('UNSAT', True, RED)
-            rect = text.get_rect()
-            rect.center = (self.width/2, self.height/2)
-            self.screen.blit(text, rect)
+            self.render_message('UNSAT', RED)
         pygame.display.update()
+
+    def get_solution(self):
+        solution = subprocess.run(
+            ['target/release/tents'], capture_output=True)
+        return eval(solution.stdout[:-1])
+
+    def render_message(self, text, color):
+        text = button_font.render(text, True, color)
+        rect = text.get_rect()
+        rect.center = (self.width/2, self.height/2)
+        self.screen.blit(text, rect)
 
     def reset_game(self):
         # remove tents and redraw unvalid cells
