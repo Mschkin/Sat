@@ -503,8 +503,6 @@ impl SatMaker {
             if self.version == 2 {
                 &self.exactly_n_from_pool(self.game.tents_in_rows[row], tents_in_row);
             } else {
-
-
                 if self.game.tents_in_rows[row] == 0 {
                     for tents in tents_in_row {
                         for tent in tents {
@@ -535,8 +533,6 @@ impl SatMaker {
             if self.version == 2 {
                 &self.exactly_n_from_pool(self.game.tents_in_columns[column], tents_in_column);
             } else {
-
-
                 if self.game.tents_in_columns[column] == 0 {
                     for tents in tents_in_column {
                         for tent in tents {
