@@ -515,9 +515,9 @@ impl SatMaker {
                 } else if self.game.tents_in_rows[row] == tents_in_row.len() {
                     for tents in tents_in_row {
                         for tent in tents {
-                            self.clauses.push_str(&format!(" {}", tent));
+                            self.clauses.push_str(&format!("{} ", tent));
                         }
-                        self.clauses.push_str(&format!(" 0\n"));
+                        self.clauses.push_str(&format!("0\n"));
                         self.clauses_qty += 1;
                     }
                 } else {
@@ -547,9 +547,9 @@ impl SatMaker {
                 } else if self.game.tents_in_columns[column] == tents_in_column.len() {
                     for tents in tents_in_column {
                         for tent in tents {
-                            self.clauses.push_str(&format!(" {}", tent));
+                            self.clauses.push_str(&format!("{} ", tent));
                         }
-                        self.clauses.push_str(&format!(" 0\n"));
+                        self.clauses.push_str(&format!("0\n"));
                         self.clauses_qty += 1;
                     }
                 } else {
@@ -625,13 +625,13 @@ impl SatMaker {
         self.clauses_qty += 1;
         for t in &self.truth_values {
             if *t {
-                self.clauses.push_str(&format!(" -{}", k));
+                self.clauses.push_str(&format!("-{} ", k));
             } else {
-                self.clauses.push_str(&format!(" {}", k));
+                self.clauses.push_str(&format!("{} ", k));
             }
             k += 1;
         }
-        self.clauses.push_str(" 0\n");
+        self.clauses.push_str("0\n");
         let claus_vec: Vec<&str> = self.clauses.split("\n").collect();
         self.clauses = claus_vec[1..].join("\n");
         self.clauses = format!(
