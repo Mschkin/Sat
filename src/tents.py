@@ -33,7 +33,10 @@ class Game:
         self.width = self.image_width+(columns + 1) * self.block_width
         self.height = self.header_width + \
             self.image_width+(rows+1)*self.block_width
-        self.screen = pygame.display.set_mode((self.width, self.height))
+        self.screen_width = max(self.width, 300)
+        self.screen_height = max(self.height, 200)
+        self.screen = pygame.display.set_mode((
+            self.screen_width, self.screen_height))
         self.screen.fill(WHITE)
         self.draw_grid()
         if not play_mode:
@@ -44,7 +47,7 @@ class Game:
             for j in range(self.columns):
                 self.draw_tents_qty_in_column(j, 0)
             self.solve_or_create_button = Button(
-                self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Create')
+                self.screen, (self.screen_width-self.image_width-80, self.image_width/2), 80, 30, 'Create')
         else:
             self.cells = [[Cell(self.screen, (i, j), self.index_to_position((i, j)), cells_content[i][j], self.image_width)
                            for j in range(self.columns)] for i in range(self.rows)]
@@ -55,9 +58,9 @@ class Game:
                 self.tents_qty_in_columns[index_column] = number
                 self.draw_tents_qty_in_column(index_column, number)
             self.reset_button = Button(
-                self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Reset')
+                self.screen, (self.screen_width/2-40, self.image_width/2), 80, 30, 'Reset')
             self.solve_or_create_button = Button(
-                self.screen, (self.width-self.image_width-80, self.image_width/2), 80, 30, 'Solve')
+                self.screen, (self.screen_width-self.image_width-80, self.image_width/2), 80, 30, 'Solve')
         self.back_button = Button(
             self.screen, (self.image_width, self.image_width / 2), 80, 30, 'Back')
         pygame.display.set_caption(
@@ -241,9 +244,9 @@ class Game:
             file.write(content)
         self.play_mode = True
         self.solve_or_create_button = Button(
-            self.screen, (self.width - self.image_width - 80, self.image_width / 2), 80, 30, 'Solve')
+            self.screen, (self.screen_width - self.image_width - 80, self.image_width / 2), 80, 30, 'Solve')
         self.reset_button = Button(
-            self.screen, (self.width/2-40, self.image_width/2), 80, 30, 'Reset')
+            self.screen, (self.screen_width/2-40, self.image_width/2), 80, 30, 'Reset')
 
     def solve_puzzle(self):
         solution = self.get_solution()
