@@ -186,10 +186,6 @@ class Game:
         return adjacent_cells
 
     def create_puzzel(self):
-        if len(self.get_solution()) == 0:
-            self.render_message('UNSAT', RED)
-            pygame.display.update()
-            return
         for cells in self.cells:
             for cell in cells:
                 if cell.image_number == TENT_NUMBER:
@@ -246,7 +242,8 @@ class Game:
         self.solve_or_create_button = Button(
             self.screen, (self.screen_width - self.image_width - 80, self.image_width / 2), 80, 30, 'Solve')
         self.reset_button = Button(
-            self.screen, (self.screen_width/2-40, self.image_width/2), 80, 30, 'Reset')
+            self.screen, (self.screen_width / 2 - 40, self.image_width / 2), 80, 30, 'Reset')
+        self.reset_game()
 
     def solve_puzzle(self):
         solution = self.get_solution()
