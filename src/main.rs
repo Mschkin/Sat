@@ -22,9 +22,9 @@
 //     }
 // }
 
-mod dpll;
 
 fn main(){
+}
 struct Clause {
     variables:Vec<usize>,
     signs:Vec<bool>,
@@ -41,36 +41,42 @@ struct Variable {
     negative_occurrence_not_satisfied_qty:usize,
 }
 
-let mut clauses=Vec::<Clause>::new();
-let mut variables=Vec::<Variable>::new();
-let mut queue=Vec::<(usize,bool)>::new();
-let mut back_tracking_stack=Vec::<(usize,bool)>::new();
-let mut conflict=false;
+struct DPLLP{
+    clauses:Vec<Clause>,
+    variables:Vec<Variable>,
+    queue:Vec<(usize,bool)>,
+    back_tracking_stack:Vec<(usize,bool)>,
+    conflict:bool,
+}
 
-fn insert(variable:Variable,value:bool,decided:bool){    
+impl DPLLP{
+
+
+
+fn insert(&self,variable:Variable,value:bool,decided:bool){    
     if value && variable.value==2{
         variable.value=value as usize;
         for clause_index in variable.positive_occurrence{
-            if clauses[clause_index].satisfied_by==0{
-                clauses[clause_index].free_variables_qty-=1;
-                if clauses[clause_index].free_variables_qty==0{
-                    conflict=true;
-                } else if clauses[clause_index].free_variables_qty==1{
-                    queue.push(get_unit_drop(clause_index));
+            if self.clauses[clause_index].satisfied_by==0{
+                self.clauses[clause_index].free_variables_qty-=1;
+                if self.clauses[clause_index].free_variables_qty==0{
+                    self.conflict=true;
+                } else if self.clauses[clause_index].free_variables_qty==1{
+                    self.queue.push(self.get_unit_drop(clause_index));
                 }
-                clauses[clause_index].satisfied_by==variable.name;
-                for index in 0..clauses[clause_index].variables.len(){
-                    let variable_index = clauses[clause_index].variables[index];
-                    if variables[variable_index].value==2{
-                        if clauses[clause_index].signs[index]{
-                            variables[variable_index].positive_occurrence_not_satisfied_qty-=1;
-                            if variables[variable_index].positive_occurrence_not_satisfied_qty==0{
-                                queue.push((variable_index,false));
+                self.clauses[clause_index].satisfied_by==variable.name;
+                for index in 0..self.clauses[clause_index].variables.len(){
+                    let variable_index = self.clauses[clause_index].variables[index];
+                    if self.variables[variable_index].value==2{
+                        if self.clauses[clause_index].signs[index]{
+                            self.variables[variable_index].positive_occurrence_not_satisfied_qty-=1;
+                            if self.variables[variable_index].positive_occurrence_not_satisfied_qty==0{
+                                self.queue.push((variable_index,false));
                             }
                         } else {
-                            variables[variable_index].negative_occurrence_not_satisfied_qty-=1;
-                            if variables[variable_index].negative_occurrence_not_satisfied_qty==0{
-                                queue.push((variable_index,true));
+                            self.variables[variable_index].negative_occurrence_not_satisfied_qty-=1;
+                            if self.variables[variable_index].negative_occurrence_not_satisfied_qty==0{
+                                self.queue.push((variable_index,true));
                             }
                         }    
                     }                                                  
@@ -78,61 +84,61 @@ fn insert(variable:Variable,value:bool,decided:bool){
             }
         }
         for clause_index in variable.negative_occurrence{
-            clauses[clause_index].free_variables_qty-=1;
+            self.clauses[clause_index].free_variables_qty-=1;
         }
-        back_tracking_stack.push((variable.name,decided)
+        self.back_tracking_stack.push((variable.name,decided))
     } else if !value && variable.value==2{
         variable.value=value as usize;
         for clause_index in variable.positive_occurrence{
-            clauses[clause_index].free_variables_qty-=1;
+            self.clauses[clause_index].free_variables_qty-=1;
         }
         for clause_index in variable.negative_occurrence{
-            clauses[clause_index].free_variables_qty-=1;
-            if clauses[clause_index].satisfied_by==0{
-                if clauses[clause_index].free_variables_qty==0{
-                    conflict=true;
-                } else if clauses[clause_index].free_variables_qty==1{
-                    queue.push(get_unit_drop(clause_index));
+            self.clauses[clause_index].free_variables_qty-=1;
+            if self.clauses[clause_index].satisfied_by==0{
+                if self.clauses[clause_index].free_variables_qty==0{
+                    self.conflict=true;
+                } else if self.clauses[clause_index].free_variables_qty==1{
+                    self.queue.push(self.get_unit_drop(clause_index));
                 }
-                clauses[clause_index].satisfied_by==variable.name;
-                for index in 0..clauses[clause_index].variables.len(){
-                    let variable_index = clauses[clause_index].variables[index];
-                    if variables[variable_index].value==2{
-                        if clauses[clause_index].signs[index]{
-                            variables[variable_index].positive_occurrence_not_satisfied_qty-=1;
-                            if variables[variable_index].positive_occurrence_not_satisfied_qty==0{
-                                queue.push((variable_index,false));
+                self.clauses[clause_index].satisfied_by==variable.name;
+                for index in 0..self.clauses[clause_index].variables.len(){
+                    let variable_index = self.clauses[clause_index].variables[index];
+                    if self.variables[variable_index].value==2{
+                        if self.clauses[clause_index].signs[index]{
+                            self.variables[variable_index].positive_occurrence_not_satisfied_qty-=1;
+                            if self.variables[variable_index].positive_occurrence_not_satisfied_qty==0{
+                                self.queue.push((variable_index,false));
                             }
                         } else {
-                            variables[variable_index].negative_occurrence_not_satisfied_qty-=1;
-                            if variables[variable_index].negative_occurrence_not_satisfied_qty==0{
-                                queue.push((variable_index,true));
+                            self.variables[variable_index].negative_occurrence_not_satisfied_qty-=1;
+                            if self.variables[variable_index].negative_occurrence_not_satisfied_qty==0{
+                                self.queue.push((variable_index,true));
                             }
                         }    
                     }                                                  
                 }
             }
         }
-        back_tracking_stack.push((variable.name,decided))
+        self.back_tracking_stack.push((variable.name,decided))
     } else if variable.value!=value as usize{
-        conflict=true
+        self.conflict=true
     }
 }
 
-fn get_unit_drop(clause_index:usize)->(usize,bool){
-    for index in 0..clauses[clause_index].variables.len(){
-        let variable_index=clauses[clause_index].variables[index];
-        if variables[variable_index].value==2{
-            (variable_index, clauses[clause_index].signs[index])
+fn get_unit_drop(&self,clause_index:usize)->(usize,bool){
+    for index in 0..self.clauses[clause_index].variables.len(){
+        let variable_index=self.clauses[clause_index].variables[index];
+        if self.variables[variable_index].value==2{
+            return (variable_index, self.clauses[clause_index].signs[index])
         }
     }
 }
 
-fn dlis()->(usize,bool){
+fn dlis(&self)->(usize,bool){
     let mut variable_index=0;
     let mut max_occurrence=0;
     let mut value=true;
-    for variable in variables{
+    for variable in self.variables{
         if variable.positive_occurrence_not_satisfied_qty>max_occurrence{
             variable_index=variable.name;
             max_occurrence=variable.positive_occurrence_not_satisfied_qty;
@@ -144,76 +150,81 @@ fn dlis()->(usize,bool){
             value=false;
         }
     }
-    (variable_index,value)
+    return (variable_index,value)
 }
 
-fn back_track(){
-    let mut variable_index, decided=back_tracking_stack.pop();
+fn back_track(&self){
+    let (mut variable_index, mut decided)=self.back_tracking_stack.pop().unwrap();
     while !decided{
-        variables[variable_index].value=2;
-        for clause_index in variables[variable_index].positive_occurrence{
-            if clauses[clause_index].satisfied_by==variable_index{
-                clauses[clause_index].free_variables_qty++;
-                clauses[clause_index].satisfied_by=0;
-                for index in 0..clauses[clause_index].variables{
-                    if variables[clauses[clause_index].variables[index]].value==2{
-                        if clauses[clause_index].signs[index]{
-                            variables[clauses[clause_index].variables[index]].positive_occurrence_not_satisfied_qty++;
+        self.variables[variable_index].value=2;
+        for clause_index in self.variables[variable_index].positive_occurrence{
+            if self.clauses[clause_index].satisfied_by==variable_index{
+                self.clauses[clause_index].free_variables_qty+=1;
+                self.clauses[clause_index].satisfied_by=0;
+                for index in 0..self.clauses[clause_index].variables.len(){
+                    if self.variables[self.clauses[clause_index].variables[index]].value==2{
+                        if self.clauses[clause_index].signs[index]{
+                            self.variables[self.clauses[clause_index].variables[index]].positive_occurrence_not_satisfied_qty+=1;
                         }else{
-                            variables[clauses[clause_index].variables[index]].negative_occurrence_not_satisfied_qty++;
+                            self.variables[self.clauses[clause_index].variables[index]].negative_occurrence_not_satisfied_qty+=1;
                         }
                     }
                    
                 }
-            }else if clauses[clause_index].satisfied_by==0{
-                clauses[clause_index].free_variables_qty++;
+            }else if self.clauses[clause_index].satisfied_by==0{
+                self.clauses[clause_index].free_variables_qty+=1;
             }
         }
-        variable_index, decided=back_tracking_stack.pop();
+        let tup=self.back_tracking_stack.pop().unwrap();
+        variable_index=tup.0;
+        decided=tup.1;
+        
     }
-    variables[variable_index].value=2;
-    for clause_index in variables[variable_index].positive_occurrence{
-        if clauses[clause_index].satisfied_by==variable_index{
-            clauses[clause_index].free_variables_qty++;
-            clauses[clause_index].satisfied_by=0;
-            for index in 0..clauses[clause_index].variables{
-                if variables[clauses[clause_index].variables[index]].value==2{
-                    if clauses[clause_index].signs[index]{
-                        variables[clauses[clause_index].variables[index]].positive_occurrence_not_satisfied_qty++;
+    self.variables[variable_index].value=2;
+    for clause_index in self.variables[variable_index].positive_occurrence{
+        if self.clauses[clause_index].satisfied_by==variable_index{
+            self.clauses[clause_index].free_variables_qty+=1;
+            self.clauses[clause_index].satisfied_by=0;
+            for index in 0..self.clauses[clause_index].variables.len(){
+                if self.variables[self.clauses[clause_index].variables[index]].value==2{
+                    if self.clauses[clause_index].signs[index]{
+                        self.variables[self.clauses[clause_index].variables[index]].positive_occurrence_not_satisfied_qty+=1;
                     }else{
-                        variables[clauses[clause_index].variables[index]].negative_occurrence_not_satisfied_qty++;
+                        self.variables[self.clauses[clause_index].variables[index]].negative_occurrence_not_satisfied_qty+=1;
                     }
                 }
                 
             }
-        }else if clauses[clause_index].satisfied_by==0{
-            clauses[clause_index].free_variables_qty++;
+        }else if self.clauses[clause_index].satisfied_by==0{
+            self.clauses[clause_index].free_variables_qty+=1;
         }
     }
-    insert(variables[variable_index],!variables[variable_index].value,false);
+    self.insert(self.variables[variable_index],self.variables[variable_index].value ==0,false);
 }
 
-fn dpll()->Vec<Variable>{
+fn dpll(&self)->Vec<Variable>{
     while true{
-        let mut next_variable,next_value=dlis();
-        insert(varibles[next_variable],next_value,true);
-        while queue.len()>0{
-            next_variable,next_value=queue.pop();
-            insert(varibles[next_variable],next_value,false);
-            while conflict{
-                queue.clear();
-                back_track();
-                conflict=false;
+        let (mut next_variable,mut next_value)=self.dlis();
+        self.insert(self.variables[next_variable],next_value,true);
+        while self.queue.len()>0{
+            let tup=self.queue.pop().unwrap();
+            next_variable=tup.0;
+            next_value=tup.1;
+            self.insert(self.variables[next_variable],next_value,false);
+            while self.conflict{
+                self.queue.clear();
+                self.back_track();
+                self.conflict=false;
             }
         }
         let mut all_set=true;
-        for variable in variables{
+        for variable in self.variables{
             if variable.value==2{
                 all_set=false
             }
         }
         if all_set{
-            variables
+             return self.variables
         }
     }
 }
