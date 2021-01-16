@@ -1,33 +1,6 @@
-// mod tents;
-// use std::time::Instant;
-// use std::env;
-
-// fn main() {
-//     let args: Vec<String> = env::args().collect();
-//     //println!("{:?}", args);
-//     let start = Instant::now();
-//     let mut sat_maker:tents::SatMaker;
-//     if args.len() == 1 {
-//         sat_maker = tents::SatMaker::new("src/tents.txt");
-//     } else {
-//         sat_maker = tents::SatMaker::new(&args[1]);
-//     }
-//     let mut duration = start.elapsed();
-//     println!("encoding time: {:?}", duration);
-//     sat_maker.solve_sat();
-//     let duration1 = start.elapsed();
-//     println!("solving time: {:?}", duration1-duration);
-//     if args.contains(&"unique".to_string()) {
-//         sat_maker.unique_check();
-//     }
-// }
-
-mod dpll;
-
-fn main(){
 struct Clause {
-    variables:Vec<usize>,
-    signs:Vec<bool>,
+    variables:vec<usize>,
+    signs:vec<bool>,
     satisfied_by:usize,
     free_variables_qty:usize,
 }
@@ -35,8 +8,8 @@ struct Clause {
 struct Variable {
     name:usize,
     value:usize,
-    positive_occurrence:Vec<usize>,
-    negative_occurrence:Vec<usize>,
+    positive_occurrence:vec<usize>,
+    negative_occurrence:vec<usize>,
     positive_occurrence_not_satisfied_qty:usize,
     negative_occurrence_not_satisfied_qty:usize,
 }
@@ -49,7 +22,7 @@ let mut conflict=false;
 
 fn insert(variable:Variable,value:bool,decided:bool){    
     if value && variable.value==2{
-        variable.value=value as usize;
+        variable.value=value;
         for clause_index in variable.positive_occurrence{
             if clauses[clause_index].satisfied_by==0{
                 clauses[clause_index].free_variables_qty-=1;
@@ -82,7 +55,7 @@ fn insert(variable:Variable,value:bool,decided:bool){
         }
         back_tracking_stack.push((variable.name,decided)
     } else if !value && variable.value==2{
-        variable.value=value as usize;
+        variable.value=value;
         for clause_index in variable.positive_occurrence{
             clauses[clause_index].free_variables_qty-=1;
         }
@@ -92,7 +65,7 @@ fn insert(variable:Variable,value:bool,decided:bool){
                 if clauses[clause_index].free_variables_qty==0{
                     conflict=true;
                 } else if clauses[clause_index].free_variables_qty==1{
-                    queue.push(get_unit_drop(clause_index));
+                    queue.push(get_unit_drop());
                 }
                 clauses[clause_index].satisfied_by==variable.name;
                 for index in 0..clauses[clause_index].variables.len(){
@@ -114,7 +87,7 @@ fn insert(variable:Variable,value:bool,decided:bool){
             }
         }
         back_tracking_stack.push((variable.name,decided))
-    } else if variable.value!=value as usize{
+    } else if variable.value!=value{
         conflict=true
     }
 }
@@ -193,7 +166,7 @@ fn back_track(){
     insert(variables[variable_index],!variables[variable_index].value,false);
 }
 
-fn dpll()->Vec<Variable>{
+fn dpll()->vec<Variables>{
     while true{
         let mut next_variable,next_value=dlis();
         insert(varibles[next_variable],next_value,true);
@@ -217,5 +190,5 @@ fn dpll()->Vec<Variable>{
         }
     }
 }
-}
+
 
