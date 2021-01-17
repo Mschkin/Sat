@@ -24,11 +24,11 @@
 
 mod dpll;
 fn main(){
-    // let mut list=vec![(1,2)];
-    // let b=list.pop().unwrap().0;
-    // if b==1{
-    //     println!("{}",b);
-    // }   
+    let mut solver=dpll::DPLL::new("src/tents_encoded.cnf");
+    let res=solver.dpll();
+    for i in 0..res.len(){
+        println!("{} {}",i+1, res[i].value);
+    }
 }
 
 
