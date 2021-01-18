@@ -23,19 +23,26 @@
 // }
 
 mod dpll;
-fn main(){
-    let mut solver=dpll::DPLL::new("src/test_encoded.cnf");
-    let res=solver.dpll();
-    let mut sol=Vec::<i32>::new();
-    for i in 0..res.len(){
-        if res[i].value == 1{
-            sol.push(i as i32+1);
-        } else{
-            sol.push(-(i as i32)-1);
+fn main() {
+    let paths = std::fs::read_dir("inputs/test/sat").unwrap();
+    for path in paths {
+        let path_str = &format!("{}", path.unwrap().path().display());
+        println!("{}", path_str);
+        let mut solver = dpll::DPLL::new(path_str);
+        let res = solver.dpll();
+        let mut sol = Vec::<i32>::new();
+        for i in 0..res.len() {
+            if res[i].value == 1 {
+                sol.push(i as i32 + 1);
+            } else {
+                sol.push(-(i as i32) - 1);
+            }
+        }
+        println!("{:?}", sol);
+        if solver.validate() {
+            println!("Correct!");
+        } else {
+            println!("Incorrect!");
         }
     }
-    println!("{:?}",sol);
 }
-
-
-
