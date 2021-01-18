@@ -1,13 +1,12 @@
 mod dpll;
 
 fn main() {
-    // let paths = std::fs::read_dir("inputs/test/sat").unwrap();
-    // for path in paths {
-    //     let path_str = &format!("{}", path.unwrap().path().display());
-    //     println!("{}", path_str);
-    //     solve(path_str);
-    // }
-    solve("inputs/test/sat/rand6.cnf");
+    let paths = std::fs::read_dir("inputs/test/sat").unwrap();
+    for path in paths {
+        let path_str = &format!("{}", path.unwrap().path().display());
+        println!("{}", path_str);
+        solve(path_str);
+    }
 }
 
 fn solve(path: &str) {
