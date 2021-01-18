@@ -32,13 +32,11 @@ impl DPLL {
         let mut clauses = Vec::<Clause>::new();
         let mut variables = Vec::<Variable>::new();
         let mut queue = Vec::<(usize, bool)>::new();
-        let mut clauses_qty: usize = 0;
         let mut variables_qty: usize = 0;
         for line_number in 0..input.len() {
             let line_elem: Vec<&str> = input[line_number].split_whitespace().collect();
             if line_elem.len() > 1 && line_elem[0] != "c" {
                 if line_elem[0] == "p" {
-                    clauses_qty = line_elem[3].parse::<usize>().unwrap();
                     variables_qty = line_elem[2].parse::<usize>().unwrap();
                     for i in 0..variables_qty {
                         let variable = Variable {
@@ -86,6 +84,16 @@ impl DPLL {
                                 != (lit > 0)
                             {
                                 push = false;
+                                for i in 0..clause.variables.len(){
+                                    if clause.signs[i]{
+                                        variables[clause.variables[i]].pos_occ.pop();
+                                        variables[clause.variables[i]].pos_occ_not_sat_qty-=1;
+                                    }else{
+                                        variables[clause.variables[i]].neg_occ.pop();
+                                        variables[clause.variables[i]].neg_occ_not_sat_qty-=1;
+                                    }
+                                }
+                                break;
                             }
                         }
                     }
