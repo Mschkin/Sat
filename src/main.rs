@@ -24,11 +24,17 @@
 
 mod dpll;
 fn main(){
-    let mut solver=dpll::DPLL::new("src/tents_encoded.cnf");
+    let mut solver=dpll::DPLL::new("src/test_encoded.cnf");
     let res=solver.dpll();
+    let mut sol=Vec::<i32>::new();
     for i in 0..res.len(){
-        println!("{} {}",i+1, res[i].value);
+        if res[i].value == 1{
+            sol.push(i as i32+1);
+        } else{
+            sol.push(-(i as i32)-1);
+        }
     }
+    println!("{:?}",sol);
 }
 
 
