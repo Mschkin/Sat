@@ -189,12 +189,12 @@ fn dlis(&self)->(usize,bool){
     let mut max_occurrence=0;
     let mut value=true;
     for index in 0..self.variables.len(){
-        if self.variables[index].pos_occ_not_sat_qty>max_occurrence{
+        if self.variables[index].pos_occ_not_sat_qty>max_occurrence && self.variables[index].value==2{ 
             variable_index=index;
             max_occurrence=self.variables[index].pos_occ_not_sat_qty;
             value=true;
         }
-        if self.variables[index].neg_occ_not_sat_qty>max_occurrence{
+        if self.variables[index].neg_occ_not_sat_qty>max_occurrence && self.variables[index].value==2{
             variable_index=index;
             max_occurrence=self.variables[index].neg_occ_not_sat_qty;
             value=false;
@@ -223,7 +223,7 @@ fn backtrack(&mut self){
 
 pub fn dpll(&mut self)->&Vec<Variable>{
     while true{
-        println!("{:?}",self.backtracking_stack);
+        println!("{:?} {:?}",self.backtracking_stack,self.queue);
         while self.queue.len()>0{
             let tup=self.queue.pop().unwrap();
             let next_variable=tup.0;
