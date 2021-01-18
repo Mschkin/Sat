@@ -58,28 +58,44 @@ impl DPLL {
                         sat_by: variables_qty,
                         free_variables_qty: 0,
                     };
+                    let mut push = true;
                     for j in 0..line_elem.len() - 1 {
                         let lit = line_elem[j].parse::<i32>().unwrap();
-                        clause.variables.push((lit.abs() - 1) as usize);
-                        clause.signs.push(lit > 0);
-                        clause.free_variables_qty += 1;
-                        if lit > 0 {
-                            variables[(lit.abs() - 1) as usize]
-                                .pos_occ
-                                .push(clauses.len());
-                            variables[(lit.abs() - 1) as usize].pos_occ_not_sat_qty += 1;
-                        } else {
-                            variables[(lit.abs() - 1) as usize]
-                                .neg_occ
-                                .push(clauses.len());
-                            variables[(lit.abs() - 1) as usize].neg_occ_not_sat_qty += 1;
+                        if !clause.variables.contains(&((lit.abs() - 1) as usize)) {
+                            clause.variables.push((lit.abs() - 1) as usize);
+                            clause.signs.push(lit > 0);
+                            clause.free_variables_qty += 1;
+                            if lit > 0 {
+                                variables[(lit.abs() - 1) as usize]
+                                    .pos_occ
+                                    .push(clauses.len());
+                                variables[(lit.abs() - 1) as usize].pos_occ_not_sat_qty += 1;
+                            } else {
+                                variables[(lit.abs() - 1) as usize]
+                                    .neg_occ
+                                    .push(clauses.len());
+                                variables[(lit.abs() - 1) as usize].neg_occ_not_sat_qty += 1;
+                            }
+                        } else { 
+                            // ignore clauses containing both x and -x 
+                            if clause.signs[clause
+                                .variables
+                                .iter()
+                                .position(|&x| x == (lit.abs() - 1) as usize)
+                                .unwrap()]
+                                != (lit > 0)
+                            {
+                                push = false;
+                            }
                         }
                     }
-                    // unit prop
-                    if clause.variables.len() == 1 {
-                        queue.push((clause.variables[0], clause.signs[0]));
+                    if push {
+                        // unit prop
+                        if clause.variables.len() == 1 {
+                            queue.push((clause.variables[0], clause.signs[0]));
+                        }
+                        clauses.push(clause);
                     }
-                    clauses.push(clause);
                 }
             }
         }
