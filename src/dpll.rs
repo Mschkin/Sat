@@ -142,11 +142,36 @@ fn unset_value(&mut self,variable_index:usize){
             self.clauses[clause_index].free_variables_qty+=1;
         }
     }
+    for i in 0..self.variables[variable_index].neg_occ.len(){
+        let clause_index=self.variables[variable_index].neg_occ[i];
+        if self.clauses[clause_index].sat_by==variable_index{
+            self.clauses[clause_index].sat_by=self.variables.len();
+            for j in 0..self.clauses[clause_index].variables.len(){
+                if self.variables[self.clauses[clause_index].variables[j]].value==2{
+                    if self.clauses[clause_index].signs[j]{
+                        self.variables[self.clauses[clause_index].variables[j]].pos_occ_not_sat_qty+=1;
+                    }else{
+                        self.variables[self.clauses[clause_index].variables[j]].neg_occ_not_sat_qty+=1;
+                    }
+                }
+                
+            }
+        }else if self.clauses[clause_index].sat_by==self.variables.len(){
+            self.clauses[clause_index].free_variables_qty+=1;
+        }
+    }
 }
 
 fn xxx(&mut self,clause_index:usize){
     if self.clauses[clause_index].sat_by==self.variables.len(){
         self.clauses[clause_index].free_variables_qty-=1;
+        let mut vals=0;
+        for i in 0..self.clauses[clause_index].variables.len(){
+            if self.variables[self.clauses[clause_index].variables[i]].value !=2{
+                vals+=1;
+            }
+        }
+        //println!("{:?} and should be {}",self.clauses[clause_index],self.clauses[clause_index].variables.len()-vals);
         if self.clauses[clause_index].free_variables_qty==0{
             self.conflict=true;
         } else if self.clauses[clause_index].free_variables_qty==1{
@@ -209,27 +234,41 @@ fn backtrack(&mut self){
         self.unset_value(variable_index);
         if self.backtracking_stack.len()==0{
             println!("UNSAT");
-            return ();
+            std::process::exit(0);
         }
         let tup=self.backtracking_stack.pop().unwrap();
         variable_index=tup.0;
         forced=tup.1;
         
     }
-    self.unset_value(variable_index);
     let switch_value=self.variables[variable_index].value ==0;
+    self.unset_value(variable_index);
     self.set_value(variable_index,switch_value,true);
 }
 
 pub fn dpll(&mut self)->&Vec<Variable>{
     while true{
-        println!("{:?} {:?}",self.backtracking_stack,self.queue);
+        let mut free =0;
+        let mut sats=0;
+        for i in 0..self.clauses.len(){
+            if self.clauses[i].sat_by<self.variables.len(){
+                sats+=1;
+            }
+        }
+        for i in 0..self.backtracking_stack.len(){
+            if !self.backtracking_stack[i].1{
+                free+=1;
+            }
+        }
+        println!("{} {}",sats,free);
+        //println!("{:?} {:?}",self.backtracking_stack,self.queue);
         while self.queue.len()>0{
             let tup=self.queue.pop().unwrap();
             let next_variable=tup.0;
             let next_value=tup.1;
             self.set_value(next_variable,next_value,true);
             while self.conflict{
+                //println!("conflict!!!!!");
                 self.queue.clear();
                 self.backtrack();
                 self.conflict=false;
