@@ -32,11 +32,11 @@ impl DPLL {
         let mut clauses = Vec::<Clause>::new();
         let mut variables = Vec::<Variable>::new();
         let mut queue = Vec::<(usize, bool)>::new();
-        let mut clauses_qty:usize=0;
-        let mut variables_qty:usize=0;
+        let mut clauses_qty: usize = 0;
+        let mut variables_qty: usize = 0;
         for line_number in 0..input.len() {
-            let line_elem:Vec<&str> = input[line_number].split_whitespace().collect();
-            if line_elem.len()>1 && line_elem[0] != "c" {
+            let line_elem: Vec<&str> = input[line_number].split_whitespace().collect();
+            if line_elem.len() > 1 && line_elem[0] != "c" {
                 if line_elem[0] == "p" {
                     clauses_qty = line_elem[3].parse::<usize>().unwrap();
                     variables_qty = line_elem[2].parse::<usize>().unwrap();
@@ -58,7 +58,7 @@ impl DPLL {
                         sat_by: variables_qty,
                         free_variables_qty: 0,
                     };
-                    for j in 0..line_elem.len()-1 {
+                    for j in 0..line_elem.len() - 1 {
                         let lit = line_elem[j].parse::<i32>().unwrap();
                         clause.variables.push((lit.abs() - 1) as usize);
                         clause.signs.push(lit > 0);
@@ -76,7 +76,7 @@ impl DPLL {
                         }
                     }
                     // unit prop
-                    if clause.variables.len() == 1 { 
+                    if clause.variables.len() == 1 {
                         queue.push((clause.variables[0], clause.signs[0]));
                     }
                     clauses.push(clause);
@@ -210,12 +210,16 @@ impl DPLL {
             if self.variables[variable_index].value == 2 {
                 if self.clauses[clause_index].signs[index] {
                     self.variables[variable_index].pos_occ_not_sat_qty -= 1;
-                    if self.variables[variable_index].pos_occ_not_sat_qty == 0 {
+                    if self.variables[variable_index].pos_occ_not_sat_qty == 0
+                        && self.variables[variable_index].neg_occ_not_sat_qty != 0
+                    {
                         self.queue.push((variable_index, false));
                     }
                 } else {
                     self.variables[variable_index].neg_occ_not_sat_qty -= 1;
-                    if self.variables[variable_index].neg_occ_not_sat_qty == 0 {
+                    if self.variables[variable_index].neg_occ_not_sat_qty == 0
+                        && self.variables[variable_index].pos_occ_not_sat_qty != 0
+                    {
                         self.queue.push((variable_index, true));
                     }
                 }
@@ -291,13 +295,20 @@ impl DPLL {
                     self.conflict = false;
                 }
             }
-            let mut all_set = true;
-            for variable in &self.variables {
-                if variable.value == 2 {
-                    all_set = false
+            let mut all_sat = true;
+            for clause in &self.clauses {
+                if clause.sat_by == self.variables.len() {
+                    all_sat = false
                 }
             }
-            if all_set {
+            if all_sat {
+                // if there are still free variables after all clauses are sat,
+                // we set those variables to false (either true or false is ok)
+                for variable in &mut self.variables {
+                    if variable.value == 2 {
+                        variable.value = 0;
+                    }
+                }
                 return &self.variables;
             }
             let (mut next_variable, mut next_value) = self.dlis();
