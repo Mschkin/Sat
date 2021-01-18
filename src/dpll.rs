@@ -96,7 +96,7 @@ fn set_value(&mut self,variable_index:usize,value:bool,forced:bool){
         for i in 0..self.variables[variable_index].pos_occ.len(){
             let clause_index=self.variables[variable_index].pos_occ[i];
             if self.clauses[clause_index].sat_by==self.variables.len(){
-                self.clauses[clause_index].sat_by==variable_index;
+                self.clauses[clause_index].sat_by=variable_index;
                 self.pure_lit(clause_index);
             }
         }
@@ -112,7 +112,7 @@ fn set_value(&mut self,variable_index:usize,value:bool,forced:bool){
         for j in 0..self.variables[variable_index].neg_occ.len(){
             let clause_index=self.variables[variable_index].neg_occ[j];
             if self.clauses[clause_index].sat_by==self.variables.len(){
-                self.clauses[clause_index].sat_by==variable_index;
+                self.clauses[clause_index].sat_by=variable_index;
                 self.pure_lit(clause_index);
             }
         }
@@ -203,7 +203,7 @@ fn dlis(&self)->(usize,bool){
     (variable_index,value)
 }
 
-fn back_track(&mut self){
+fn backtrack(&mut self){
     let (mut variable_index, mut forced)=self.backtracking_stack.pop().unwrap();
     while forced{
         self.unset_value(variable_index);
@@ -222,8 +222,8 @@ fn back_track(&mut self){
 }
 
 pub fn dpll(&mut self)->&Vec<Variable>{
-    println!("{:?}",self);
     while true{
+        println!("{:?}",self.backtracking_stack);
         while self.queue.len()>0{
             let tup=self.queue.pop().unwrap();
             let next_variable=tup.0;
@@ -231,7 +231,7 @@ pub fn dpll(&mut self)->&Vec<Variable>{
             self.set_value(next_variable,next_value,true);
             while self.conflict{
                 self.queue.clear();
-                self.back_track();
+                self.backtrack();
                 self.conflict=false;
             }
         } 
