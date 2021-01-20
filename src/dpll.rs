@@ -74,8 +74,8 @@ impl DPLL {
                                     .push(clauses.len());
                                 variables[(lit.abs() - 1) as usize].neg_occ_not_sat_qty += 1;
                             }
-                        } else { 
-                            // ignore clauses containing both x and -x 
+                        } else {
+                            // ignore clauses containing both x and -x
                             if clause.signs[clause
                                 .variables
                                 .iter()
@@ -84,13 +84,13 @@ impl DPLL {
                                 != (lit > 0)
                             {
                                 push = false;
-                                for i in 0..clause.variables.len(){
-                                    if clause.signs[i]{
+                                for i in 0..clause.variables.len() {
+                                    if clause.signs[i] {
                                         variables[clause.variables[i]].pos_occ.pop();
-                                        variables[clause.variables[i]].pos_occ_not_sat_qty-=1;
-                                    }else{
+                                        variables[clause.variables[i]].pos_occ_not_sat_qty -= 1;
+                                    } else {
                                         variables[clause.variables[i]].neg_occ.pop();
-                                        variables[clause.variables[i]].neg_occ_not_sat_qty-=1;
+                                        variables[clause.variables[i]].neg_occ_not_sat_qty -= 1;
                                     }
                                 }
                                 break;
@@ -137,13 +137,13 @@ impl DPLL {
                 }
             }
             for j in 0..self.variables[variable_index].neg_occ.len() {
-                self.xxx(self.variables[variable_index].neg_occ[j]);
+                self.unit_prop(self.variables[variable_index].neg_occ[j]);
             }
             self.backtracking_stack.push((variable_index, forced))
         } else if !value && self.variables[variable_index].value == 2 {
             self.variables[variable_index].value = value as usize;
             for i in 0..self.variables[variable_index].pos_occ.len() {
-                self.xxx(self.variables[variable_index].pos_occ[i]);
+                self.unit_prop(self.variables[variable_index].pos_occ[i]);
             }
             for j in 0..self.variables[variable_index].neg_occ.len() {
                 let clause_index = self.variables[variable_index].neg_occ[j];
@@ -162,54 +162,36 @@ impl DPLL {
         self.variables[variable_index].value = 2;
         for i in 0..self.variables[variable_index].pos_occ.len() {
             let clause_index = self.variables[variable_index].pos_occ[i];
-            if self.clauses[clause_index].sat_by == variable_index {
-                self.clauses[clause_index].sat_by = self.variables.len();
-                for j in 0..self.clauses[clause_index].variables.len() {
-                    if self.variables[self.clauses[clause_index].variables[j]].value == 2 {
-                        if self.clauses[clause_index].signs[j] {
-                            self.variables[self.clauses[clause_index].variables[j]]
-                                .pos_occ_not_sat_qty += 1;
-                        } else {
-                            self.variables[self.clauses[clause_index].variables[j]]
-                                .neg_occ_not_sat_qty += 1;
-                        }
-                    }
-                }
-            } else if self.clauses[clause_index].sat_by == self.variables.len() {
-                self.clauses[clause_index].free_variables_qty += 1;
-            }
+            self.handle_unset_value(clause_index, variable_index);
         }
         for i in 0..self.variables[variable_index].neg_occ.len() {
             let clause_index = self.variables[variable_index].neg_occ[i];
-            if self.clauses[clause_index].sat_by == variable_index {
-                self.clauses[clause_index].sat_by = self.variables.len();
-                for j in 0..self.clauses[clause_index].variables.len() {
-                    if self.variables[self.clauses[clause_index].variables[j]].value == 2 {
-                        if self.clauses[clause_index].signs[j] {
-                            self.variables[self.clauses[clause_index].variables[j]]
-                                .pos_occ_not_sat_qty += 1;
-                        } else {
-                            self.variables[self.clauses[clause_index].variables[j]]
-                                .neg_occ_not_sat_qty += 1;
-                        }
-                    }
-                }
-            } else if self.clauses[clause_index].sat_by == self.variables.len() {
-                self.clauses[clause_index].free_variables_qty += 1;
-            }
+            self.handle_unset_value(clause_index, variable_index);
         }
     }
 
-    fn xxx(&mut self, clause_index: usize) {
-        if self.clauses[clause_index].sat_by == self.variables.len() {
-            self.clauses[clause_index].free_variables_qty -= 1;
-            let mut vals = 0;
-            for i in 0..self.clauses[clause_index].variables.len() {
-                if self.variables[self.clauses[clause_index].variables[i]].value != 2 {
-                    vals += 1;
+    fn handle_unset_value(&mut self, clause_index: usize, variable_index: usize) {
+        if self.clauses[clause_index].sat_by == variable_index {
+            self.clauses[clause_index].sat_by = self.variables.len();
+            for j in 0..self.clauses[clause_index].variables.len() {
+                if self.variables[self.clauses[clause_index].variables[j]].value == 2 {
+                    if self.clauses[clause_index].signs[j] {
+                        self.variables[self.clauses[clause_index].variables[j]]
+                            .pos_occ_not_sat_qty += 1;
+                    } else {
+                        self.variables[self.clauses[clause_index].variables[j]]
+                            .neg_occ_not_sat_qty += 1;
+                    }
                 }
             }
-            //println!("{:?} and should be {}",self.clauses[clause_index],self.clauses[clause_index].variables.len()-vals);
+        } else if self.clauses[clause_index].sat_by == self.variables.len() {
+            self.clauses[clause_index].free_variables_qty += 1;
+        }
+    }
+
+    fn unit_prop(&mut self, clause_index: usize) {
+        if self.clauses[clause_index].sat_by == self.variables.len() {
+            self.clauses[clause_index].free_variables_qty -= 1;
             if self.clauses[clause_index].free_variables_qty == 0 {
                 self.conflict = true;
             } else if self.clauses[clause_index].free_variables_qty == 1 {
