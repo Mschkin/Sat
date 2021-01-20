@@ -13,6 +13,8 @@ pub struct Variable {
     neg_occ: Vec<usize>,
     pos_occ_not_sat_qty: usize,
     neg_occ_not_sat_qty: usize,
+    pos_occ_len:Vec<usize>,
+    neg_occ_len:Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -23,10 +25,11 @@ pub struct DPLL {
     backtracking_stack: Vec<(usize, bool)>,
     conflict: bool,
     pub unsat: bool,
+    heuristic:usize,
 }
 
 impl DPLL {
-    pub fn new(path: &str) -> Self {
+    pub fn new(path: &str,heuristic:usize) -> Self {
         let content: String = read_file(path);
         let content_clone = content.clone();
         let input: Vec<&str> = (&content_clone).split("\n").collect();
@@ -46,6 +49,8 @@ impl DPLL {
                             neg_occ: Vec::<usize>::new(),
                             pos_occ_not_sat_qty: 0,
                             neg_occ_not_sat_qty: 0,
+                            pos_occ_len:Vec::<usize>::new(),
+                            neg_occ_len:Vec::<usize>::new(),
                         };
                         variables.push(variable);
                     }
@@ -104,6 +109,12 @@ impl DPLL {
                             queue.push((clause.variables[0], clause.signs[0]));
                         }
                         clauses.push(clause);
+                        for i in 0..clause.variables.len(){
+                            if clause.signs[i]{
+                                variables[clause.variables[i]].pos_occ_len[clause.variables.len()-1]+=1;
+                            }
+                            
+                        }
                     }
                 }
             }
@@ -125,6 +136,7 @@ impl DPLL {
             backtracking_stack: Vec::<(usize, bool)>::new(),
             conflict: false,
             unsat: false,
+            heuristic:heuristic,
         }
     }
 
@@ -258,6 +270,30 @@ impl DPLL {
         (variable_index, value)
     }
 
+    fn dlcs(&self)->(usize,bool){
+        let mut variable_index = 0;
+        let mut max_occurrence = 0;
+        let mut value = true;
+        for index in 0..self.variables.len() {
+            if self.variables[index].pos_occ_not_sat_qty+self.variables[index].neg_occ_not_sat_qty > max_occurrence
+                && self.variables[index].value == 2
+            {
+                variable_index = index;
+                max_occurrence = self.variables[index].pos_occ_not_sat_qty+self.variables[index].neg_occ_not_sat_qty;
+                if self.variables[index].pos_occ_not_sat_qty>=self.variables[index].neg_occ_not_sat_qty{
+                    value=true;
+                }else{
+                    value=false;
+                }
+            }
+        }
+        (variable_index, value)
+    }
+
+    // fn mom(&self)->(usize,bool){
+
+    // }
+
     fn backtrack(&mut self) {
         let (mut variable_index, mut forced) = self.backtracking_stack.pop().unwrap();
         while forced {
@@ -319,8 +355,15 @@ impl DPLL {
                 }
                 return;
             }
-            let (mut next_variable, mut next_value) = self.dlis();
-            self.set_value(next_variable, next_value, false);
+            let mut next_choice:(usize,bool);
+            if self.heuristic==0{
+                next_choice = self.dlis();
+            } else if self.heuristic==1{
+                next_choice=self.dlcs();
+            } else{
+                next_choice=self.dlcs();
+            }
+            self.set_value(next_choice.0, next_choice.1, false);
         }
     }
 

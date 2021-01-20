@@ -1,16 +1,18 @@
 mod dpll;
 
 fn main() {
-    let paths = std::fs::read_dir("inputs/test/unsat").unwrap();
+    let paths = std::fs::read_dir("inputs/test/sat").unwrap();
     for path in paths {
         let path_str = &format!("{}", path.unwrap().path().display());
-        println!("{}", path_str);
-        solve(path_str);
+        if path_str.ends_with(".cnf") {
+            println!("{}", path_str);
+            solve(path_str);
+        }        
     }
 }
 
 fn solve(path: &str) {
-    let mut solver = dpll::DPLL::new(path);
+    let mut solver = dpll::DPLL::new(path,1);
     solver.dpll();
     if solver.unsat {
         println!("s UNSATISFIABLE");
