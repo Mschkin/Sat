@@ -18,10 +18,11 @@ pub struct Variable {
 #[derive(Debug)]
 pub struct DPLL {
     clauses: Vec<Clause>,
-    variables: Vec<Variable>,
+    pub variables: Vec<Variable>,
     queue: Vec<(usize, bool)>,
     backtracking_stack: Vec<(usize, bool)>,
     conflict: bool,
+    pub unsat: bool,
 }
 
 impl DPLL {
@@ -123,6 +124,7 @@ impl DPLL {
             queue: queue,
             backtracking_stack: Vec::<(usize, bool)>::new(),
             conflict: false,
+            unsat: false,
         }
     }
 
@@ -261,8 +263,8 @@ impl DPLL {
         while forced {
             self.unset_value(variable_index);
             if self.backtracking_stack.len() == 0 {
-                println!("UNSAT");
-                std::process::exit(0);
+                self.unsat = true;
+                return;
             }
             let tup = self.backtracking_stack.pop().unwrap();
             variable_index = tup.0;
@@ -273,8 +275,8 @@ impl DPLL {
         self.set_value(variable_index, switch_value, true);
     }
 
-    pub fn dpll(&mut self) -> &Vec<Variable> {
-        while true {
+    pub fn dpll(&mut self) {
+        while !self.unsat {
             let mut free = 0;
             let mut sats = 0;
             for i in 0..self.clauses.len() {
@@ -315,12 +317,11 @@ impl DPLL {
                         variable.value = 0;
                     }
                 }
-                return &self.variables;
+                return;
             }
             let (mut next_variable, mut next_value) = self.dlis();
             self.set_value(next_variable, next_value, false);
         }
-        &self.variables
     }
 
     pub fn validate(&self) -> bool {
