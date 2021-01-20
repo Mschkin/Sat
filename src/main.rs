@@ -7,12 +7,12 @@ fn main() {
         if path_str.ends_with(".cnf") {
             println!("{}", path_str);
             solve(path_str);
-        }        
+        }
     }
 }
 
 fn solve(path: &str) {
-    let mut solver = dpll::DPLL::new(path,1);
+    let mut solver = dpll::DPLL::new(path, 2);
     solver.dpll();
     if solver.unsat {
         println!("s UNSATISFIABLE");
