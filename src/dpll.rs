@@ -242,16 +242,29 @@ impl DPLL {
                 for j in 0..self.clauses[clause_index].variables.len() {
                     if self.variables[self.clauses[clause_index].variables[j]].value == 2 {
                         if self.clauses[clause_index].signs[j] {
-                            self.variables[self.clauses[clause_index].variables[j]].pos_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 3] -= 1;
+                            if self.clauses[clause_index].free_variables_qty >= 3 {
+                                println!(
+                                    "{} {} {:?}",self.clauses[clause_index].free_variables_qty,
+                                    self.clauses[clause_index].variables[j]+1,
+                                    self.variables[self.clauses[clause_index].variables[j]]
+                                        .pos_occ_len
+                                );
+                                println!("{:?}", self.clauses[clause_index]);
+                                self.variables[self.clauses[clause_index].variables[j]]
+                                    .pos_occ_len
+                                    [self.clauses[clause_index].free_variables_qty - 3] -= 1;
+                            }
                             self.variables[self.clauses[clause_index].variables[j]].pos_occ_len
                                 [self.clauses[clause_index].free_variables_qty - 2] += 1;
+                        } else {
+                            if self.clauses[clause_index].free_variables_qty >= 3 {
+                                self.variables[self.clauses[clause_index].variables[j]]
+                                    .neg_occ_len
+                                    [self.clauses[clause_index].free_variables_qty - 3] -= 1;
+                            }
+                            self.variables[self.clauses[clause_index].variables[j]].neg_occ_len
+                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
                         }
-                    } else {
-                        self.variables[self.clauses[clause_index].variables[j]].neg_occ_len
-                            [self.clauses[clause_index].free_variables_qty - 3] -= 1;
-                        self.variables[self.clauses[clause_index].variables[j]].neg_occ_len
-                            [self.clauses[clause_index].free_variables_qty - 2] += 1;
                     }
                 }
             }
@@ -262,7 +275,7 @@ impl DPLL {
     fn unit_prop(&mut self, clause_index: usize) {
         if self.clauses[clause_index].sat_by == self.variables.len() {
             self.clauses[clause_index].free_variables_qty -= 1;
-            if self.clauses[clause_index].free_variables_qty > 1&&self.heuristic>1 {
+            if self.clauses[clause_index].free_variables_qty > 1 && self.heuristic > 1 {
                 for i in 0..self.clauses[clause_index].variables.len() {
                     if self.variables[self.clauses[clause_index].variables[i]].value == 2 {
                         if self.clauses[clause_index].signs[i] {
@@ -427,6 +440,8 @@ impl DPLL {
         (variable, value)
     }
 
+    fn boehm(&mut self)
+
     fn backtrack(&mut self) {
         let (mut variable_index, mut forced) = self.backtracking_stack.pop().unwrap();
         while forced {
@@ -446,6 +461,18 @@ impl DPLL {
 
     pub fn dpll(&mut self) {
         while !self.unsat && !self.solved {
+            while self.queue.len() > 0 {
+                let tup = self.queue.pop().unwrap();
+                let next_variable = tup.0;
+                let next_value = tup.1;
+                self.set_value(next_variable, next_value, true);
+                if self.conflict {
+                    //println!("conflict!!!!!");
+                    self.queue.clear();
+                    self.backtrack();
+                    self.conflict = false;
+                }
+            }
             if self.heuristic > 1 {
                 for i in 0..self.variables.len() {
                     if self.variables[i].pos_occ_not_sat_qty !=
@@ -466,18 +493,6 @@ impl DPLL {
                             self.variables[i].neg_occ_not_sat_qty
                         )
                     }
-                }
-            }
-            while self.queue.len() > 0 {
-                let tup = self.queue.pop().unwrap();
-                let next_variable = tup.0;
-                let next_value = tup.1;
-                self.set_value(next_variable, next_value, true);
-                if self.conflict {
-                    //println!("conflict!!!!!");
-                    self.queue.clear();
-                    self.backtrack();
-                    self.conflict = false;
                 }
             }
             let next_choice: (usize, bool);
