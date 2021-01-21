@@ -244,8 +244,9 @@ impl DPLL {
                         if self.clauses[clause_index].signs[j] {
                             if self.clauses[clause_index].free_variables_qty >= 3 {
                                 println!(
-                                    "{} {} {:?}",self.clauses[clause_index].free_variables_qty,
-                                    self.clauses[clause_index].variables[j]+1,
+                                    "{} {} {:?}",
+                                    self.clauses[clause_index].free_variables_qty,
+                                    self.clauses[clause_index].variables[j] + 1,
                                     self.variables[self.clauses[clause_index].variables[j]]
                                         .pos_occ_len
                                 );
@@ -401,6 +402,7 @@ impl DPLL {
         let mut variable = self.variables.len();
         let mut value = false;
         let mut k: usize;
+        let constant = 8;
         for i in 0..self.variables.len() {
             if self.variables[i].value == 2 {
                 k = 0;
@@ -411,9 +413,10 @@ impl DPLL {
                 }
                 if k < shortest_len {
                     shortest_len = k;
-                    momscore =
-                        (self.variables[i].pos_occ_len[k] + self.variables[i].neg_occ_len[k]) * 8 +
-                            self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
+                    momscore = (self.variables[i].pos_occ_len[k] +
+                                    self.variables[i].neg_occ_len[k]) *
+                        constant +
+                        self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
                     variable = i;
                     value = self.variables[i].pos_occ_len[k] > self.variables[i].neg_occ_len[k];
 
@@ -421,13 +424,14 @@ impl DPLL {
                            momscore <
                                (self.variables[i].pos_occ_len[k] +
                                     self.variables[i].neg_occ_len[k]) *
-                                   8 +
+                                   constant +
                                    self.variables[i].pos_occ_len[k] *
                                        self.variables[i].neg_occ_len[k]
                 {
-                    momscore =
-                        (self.variables[i].pos_occ_len[k] + self.variables[i].neg_occ_len[k]) * 8 +
-                            self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
+                    momscore = (self.variables[i].pos_occ_len[k] +
+                                    self.variables[i].neg_occ_len[k]) *
+                        constant +
+                        self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
                     variable = i;
                     value = self.variables[i].pos_occ_len[k] > self.variables[i].neg_occ_len[k];
                 }
@@ -440,7 +444,122 @@ impl DPLL {
         (variable, value)
     }
 
-    fn boehm(&mut self)
+    fn jw(&mut self) -> (usize, bool) {
+        let mut jwscore = 0;
+        let mut variable = self.variables.len();
+        let mut value = false;
+        for i in 0..self.variables.len() {
+            if self.variables[i].value == 2 {
+                let mut new_jw = 0;
+                let mut weight = 1 / 4;
+                for i in 0..self.variables[i].pos_occ_len.len() {
+                    new_jw += weight * self.variables[i].pos_occ_len[i];
+                    weight = weight / 2;
+                }
+                if new_jw > jwscore {
+                    jwscore = new_jw;
+                    variable = i;
+                    value = true;
+                }
+                let mut new_jw = 0;
+                let mut weight = 1 / 4;
+                for i in 0..self.variables[i].neg_occ_len.len() {
+                    new_jw += weight * self.variables[i].neg_occ_len[i];
+                    weight = weight / 2;
+                }
+                if new_jw > jwscore {
+                    jwscore = new_jw;
+                    variable = i;
+                    value = false;
+                }
+            }
+        }
+        if variable == self.variables.len() {
+            self.solved = true;
+            return (variable, true);
+        }
+        (variable, value)
+
+    }
+
+    fn occurrence_count(&self, variable: usize, occ: usize, pos: bool) -> usize {
+        if pos && self.variables[variable].pos_occ_len.len() >= occ {
+            return 0;
+        } else if !pos && self.variables[variable].neg_occ_len.len() >= occ {
+            return 0;
+        }
+        if pos {
+            return self.variables[variable].pos_occ_len[occ];
+        } else {
+            return self.variables[variable].neg_occ_len[occ];
+        }
+    }
+
+    fn boehm(&mut self) -> (usize, bool) {
+        let mut hs = vec![0; self.variables.len()];
+        let mut variable = self.variables.len();
+        let mut value = false;
+        let mut maxlen = 0;
+        let alpha = 1;
+        let beta = 2;
+        for i in 0..self.variables.len() {
+            if self.variables[i].value == 2 {
+                if maxlen <
+                    std::cmp::max(
+                        self.variables[variable].pos_occ_len.len(),
+                        self.variables[variable].neg_occ_len.len(),
+                    )
+                {
+                    maxlen = std::cmp::max(
+                        self.variables[variable].pos_occ_len.len(),
+                        self.variables[variable].neg_occ_len.len(),
+                    );
+                }
+                for mut j in 0..hs.len() {
+
+                    let hnew = alpha *
+                        std::cmp::max(
+                            self.occurrence_count(i, j, true),
+                            self.occurrence_count(i, j, false),
+                        ) +
+                        beta *
+                            std::cmp::min(
+                                self.occurrence_count(i, j, true),
+                                self.occurrence_count(i, j, false),
+                            );
+                    if hnew > hs[j] {
+                        variable = i;
+                        value = self.variables[variable].pos_occ_not_sat_qty >
+                            self.variables[variable].neg_occ_not_sat_qty;
+                        hs[j] = hnew;
+                        while j < maxlen {
+                            j += 1;
+                            hs[j] = alpha *
+                                std::cmp::max(
+                                    self.occurrence_count(i, j, true),
+                                    self.occurrence_count(i, j, false),
+                                ) +
+                                beta *
+                                    std::cmp::min(
+                                        self.occurrence_count(i, j, true),
+                                        self.occurrence_count(i, j, false),
+                                    );
+                        }
+                        break;
+                    } else if hnew < hs[j] {
+                        break;
+                    }
+                }
+
+            }
+        }
+        if variable == self.variables.len() {
+            self.solved = true;
+            return (variable, true);
+        }
+        (variable, value)
+
+    }
 
     fn backtrack(&mut self) {
         let (mut variable_index, mut forced) = self.backtracking_stack.pop().unwrap();
@@ -460,6 +579,7 @@ impl DPLL {
     }
 
     pub fn dpll(&mut self) {
+        ploter();
         while !self.unsat && !self.solved {
             while self.queue.len() > 0 {
                 let tup = self.queue.pop().unwrap();
@@ -500,8 +620,12 @@ impl DPLL {
                 next_choice = self.dlis();
             } else if self.heuristic == 1 {
                 next_choice = self.dlcs();
-            } else {
+            } else if self.heuristic == 2 {
+                next_choice = self.jw();
+            } else if self.heuristic == 3 {
                 next_choice = self.moms();
+            } else {
+                next_choice = self.boehm();
             }
             if !self.solved {
                 self.set_value(next_choice.0, next_choice.1, false);
@@ -548,3 +672,91 @@ fn read_file(path: &str) -> String {
     file.read_to_string(&mut contents).unwrap();
     contents
 }
+use plotters::prelude::*;
+
+fn ploter() {
+    let root_area = BitMapBackend::new("test.png", (600, 400))
+    .into_drawing_area();
+    root_area.fill(&WHITE).unwrap();
+
+    let mut ctx = ChartBuilder::on(&root_area)
+        .set_label_area_size(LabelAreaPosition::Left, 40)
+        .set_label_area_size(LabelAreaPosition::Bottom, 40)
+        .caption("Scatter Demo", ("sans-serif", 40))
+        .build_cartesian_2d(-10..50, -10..50)
+        .unwrap();
+
+    ctx.configure_mesh().draw().unwrap();
+
+    ctx.draw_series(
+        DATA1.iter().map(|point| TriangleMarker::new(*point, 5, &BLUE)),
+    )
+    .unwrap();
+
+    ctx.draw_series(DATA2.iter().map(|point| Circle::new(*point, 5, &RED)))
+        .unwrap();
+}
+const DATA1: [(i32, i32); 30] = [
+    (-3, 1),
+    (-2, 3),
+    (4, 2),
+    (3, 0),
+    (6, -5),
+    (3, 11),
+    (6, 0),
+    (2, 14),
+    (3, 9),
+    (14, 7),
+    (8, 11),
+    (10, 16),
+    (7, 15),
+    (13, 8),
+    (17, 14),
+    (13, 17),
+    (19, 11),
+    (18, 8),
+    (15, 8),
+    (23, 23),
+    (15, 20),
+    (22, 23),
+    (22, 21),
+    (21, 30),
+    (19, 28),
+    (22, 23),
+    (30, 23),
+    (26, 35),
+    (33, 19),
+    (26, 19),
+];
+const DATA2: [(i32, i32); 30] = [
+    (1, 22),
+    (0, 22),
+    (1, 20),
+    (2, 24),
+    (4, 26),
+    (6, 24),
+    (5, 27),
+    (6, 27),
+    (7, 27),
+    (8, 30),
+    (10, 30),
+    (10, 33),
+    (12, 34),
+    (13, 31),
+    (15, 35),
+    (14, 33),
+    (17, 36),
+    (16, 35),
+    (17, 39),
+    (19, 38),
+    (21, 38),
+    (22, 39),
+    (23, 43),
+    (24, 44),
+    (24, 46),
+    (26, 47),
+    (27, 48),
+    (26, 49),
+    (28, 47),
+    (28, 50),
+];

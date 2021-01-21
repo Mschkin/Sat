@@ -1,13 +1,15 @@
 mod dpll;
+use plotters::prelude::*;
 
 fn main() {
+
     solve("inputs/test/sat/unit.cnf");
     let paths = std::fs::read_dir("inputs/test/unsat").unwrap();
     for path in paths {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.ends_with(".cnf") {
-            println!("{}", path_str);
-            solve(path_str);
+            //println!("{}", path_str);
+            //solve(path_str);
         }
     }
 }
