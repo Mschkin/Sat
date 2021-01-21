@@ -108,34 +108,8 @@ impl DPLL {
                         // unit prop
                         if clause.variables.len() == 1 {
                             queue.push((clause.variables[0], clause.signs[0]));
-                        } else if heuristic > 1 {
-                            for i in 0..clause.variables.len() {
-                                if clause.signs[i] {
-                                    while variables[clause.variables[i]].pos_occ_len.len() <=
-                                        clause.variables.len() - 2
-                                    {
-                                        variables[clause.variables[i]].pos_occ_len.push(0);
-                                    }
-                                    variables[clause.variables[i]].pos_occ_len[clause
-                                                                                   .variables
-                                                                                   .len() -
-                                                                                   2] += 1;
-                                } else {
-                                    while variables[clause.variables[i]].neg_occ_len.len() <=
-                                        clause.variables.len() - 2
-                                    {
-                                        variables[clause.variables[i]].neg_occ_len.push(0);
-                                    }
-                                    variables[clause.variables[i]].neg_occ_len[clause
-                                                                                   .variables
-                                                                                   .len() -
-                                                                                   2] += 1;
-                                }
-
-                            }
                         }
                         clauses.push(clause);
-
                     }
                 }
             }
@@ -218,57 +192,14 @@ impl DPLL {
                     if self.clauses[clause_index].signs[j] {
                         self.variables[self.clauses[clause_index].variables[j]]
                             .pos_occ_not_sat_qty += 1;
-                        if self.heuristic > 1 &&
-                            self.clauses[clause_index].free_variables_qty >= 2
-                        {
-                            self.variables[self.clauses[clause_index].variables[j]].pos_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
-                        }
                     } else {
                         self.variables[self.clauses[clause_index].variables[j]]
                             .neg_occ_not_sat_qty += 1;
-                        if self.heuristic > 1 &&
-                            self.clauses[clause_index].free_variables_qty >= 2
-                        {
-                            self.variables[self.clauses[clause_index].variables[j]].neg_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
-                        }
                     }
                 }
             }
         } else if self.clauses[clause_index].sat_by == self.variables.len() {
             self.clauses[clause_index].free_variables_qty += 1;
-            if self.heuristic > 1 && self.clauses[clause_index].free_variables_qty >= 2 {
-                for j in 0..self.clauses[clause_index].variables.len() {
-                    if self.variables[self.clauses[clause_index].variables[j]].value == 2 {
-                        if self.clauses[clause_index].signs[j] {
-                            if self.clauses[clause_index].free_variables_qty >= 3 {
-                                println!(
-                                    "{} {} {:?}",
-                                    self.clauses[clause_index].free_variables_qty,
-                                    self.clauses[clause_index].variables[j] + 1,
-                                    self.variables[self.clauses[clause_index].variables[j]]
-                                        .pos_occ_len
-                                );
-                                println!("{:?}", self.clauses[clause_index]);
-                                self.variables[self.clauses[clause_index].variables[j]]
-                                    .pos_occ_len
-                                    [self.clauses[clause_index].free_variables_qty - 3] -= 1;
-                            }
-                            self.variables[self.clauses[clause_index].variables[j]].pos_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
-                        } else {
-                            if self.clauses[clause_index].free_variables_qty >= 3 {
-                                self.variables[self.clauses[clause_index].variables[j]]
-                                    .neg_occ_len
-                                    [self.clauses[clause_index].free_variables_qty - 3] -= 1;
-                            }
-                            self.variables[self.clauses[clause_index].variables[j]].neg_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
-                        }
-                    }
-                }
-            }
         }
 
     }
@@ -276,23 +207,7 @@ impl DPLL {
     fn unit_prop(&mut self, clause_index: usize) {
         if self.clauses[clause_index].sat_by == self.variables.len() {
             self.clauses[clause_index].free_variables_qty -= 1;
-            if self.clauses[clause_index].free_variables_qty > 1 && self.heuristic > 1 {
-                for i in 0..self.clauses[clause_index].variables.len() {
-                    if self.variables[self.clauses[clause_index].variables[i]].value == 2 {
-                        if self.clauses[clause_index].signs[i] {
-                            self.variables[self.clauses[clause_index].variables[i]].pos_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
-                            self.variables[self.clauses[clause_index].variables[i]].pos_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 1] -= 1;
-                        } else {
-                            self.variables[self.clauses[clause_index].variables[i]].neg_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
-                            self.variables[self.clauses[clause_index].variables[i]].neg_occ_len
-                                [self.clauses[clause_index].free_variables_qty - 1] -= 1;
-                        }
-                    }
-                }
-            } else if self.clauses[clause_index].free_variables_qty == 0 {
+            if self.clauses[clause_index].free_variables_qty == 0 {
                 self.conflict = true;
             } else if self.clauses[clause_index].free_variables_qty == 1 {
                 self.queue.push(self.get_unit_prop(clause_index));
@@ -316,21 +231,11 @@ impl DPLL {
             if self.variables[variable_index].value == 2 {
                 if self.clauses[clause_index].signs[index] {
                     self.variables[variable_index].pos_occ_not_sat_qty -= 1;
-                    if self.heuristic > 1 {
-                        self.variables[variable_index].pos_occ_len[self.clauses[clause_index]
-                                                                       .free_variables_qty -
-                                                                       2] -= 1;
-                    }
                     if self.variables[variable_index].pos_occ_not_sat_qty == 0 {
                         self.queue.push((variable_index, false));
                     }
                 } else {
                     self.variables[variable_index].neg_occ_not_sat_qty -= 1;
-                    if self.heuristic > 1 {
-                        self.variables[variable_index].neg_occ_len[self.clauses[clause_index]
-                                                                       .free_variables_qty -
-                                                                       2] -= 1;
-                    }
                     if self.variables[variable_index].neg_occ_not_sat_qty == 0 &&
                         self.variables[variable_index].pos_occ_not_sat_qty != 0
                     {
@@ -579,7 +484,7 @@ impl DPLL {
     }
 
     pub fn dpll(&mut self) {
-        ploter();
+        //ploter();
         while !self.unsat && !self.solved {
             while self.queue.len() > 0 {
                 let tup = self.queue.pop().unwrap();
@@ -591,28 +496,6 @@ impl DPLL {
                     self.queue.clear();
                     self.backtrack();
                     self.conflict = false;
-                }
-            }
-            if self.heuristic > 1 {
-                for i in 0..self.variables.len() {
-                    if self.variables[i].pos_occ_not_sat_qty !=
-                        self.variables[i].pos_occ_len.iter().fold(0, |a, &b| a + b)
-                    {
-                        println!(
-                            "ERROR, {:?} {}",
-                            self.variables[i].pos_occ_len,
-                            self.variables[i].pos_occ_not_sat_qty
-                        )
-                    }
-                    if self.variables[i].neg_occ_not_sat_qty !=
-                        self.variables[i].neg_occ_len.iter().fold(0, |a, &b| a + b)
-                    {
-                        println!(
-                            "ERROR, {:?} {}",
-                            self.variables[i].neg_occ_len,
-                            self.variables[i].neg_occ_not_sat_qty
-                        )
-                    }
                 }
             }
             let next_choice: (usize, bool);
@@ -672,91 +555,91 @@ fn read_file(path: &str) -> String {
     file.read_to_string(&mut contents).unwrap();
     contents
 }
-use plotters::prelude::*;
+// use plotters::prelude::*;
 
-fn ploter() {
-    let root_area = BitMapBackend::new("test.png", (600, 400))
-    .into_drawing_area();
-    root_area.fill(&WHITE).unwrap();
+// fn ploter() {
+//     let root_area = BitMapBackend::new("test.png", (600, 400))
+//     .into_drawing_area();
+//     root_area.fill(&WHITE).unwrap();
 
-    let mut ctx = ChartBuilder::on(&root_area)
-        .set_label_area_size(LabelAreaPosition::Left, 40)
-        .set_label_area_size(LabelAreaPosition::Bottom, 40)
-        .caption("Scatter Demo", ("sans-serif", 40))
-        .build_cartesian_2d(-10..50, -10..50)
-        .unwrap();
+//     let mut ctx = ChartBuilder::on(&root_area)
+//         .set_label_area_size(LabelAreaPosition::Left, 40)
+//         .set_label_area_size(LabelAreaPosition::Bottom, 40)
+//         .caption("Scatter Demo", ("sans-serif", 40))
+//         .build_cartesian_2d(-10..50, -10..50)
+//         .unwrap();
 
-    ctx.configure_mesh().draw().unwrap();
+//     ctx.configure_mesh().draw().unwrap();
 
-    ctx.draw_series(
-        DATA1.iter().map(|point| TriangleMarker::new(*point, 5, &BLUE)),
-    )
-    .unwrap();
+//     ctx.draw_series(
+//         DATA1.iter().map(|point| TriangleMarker::new(*point, 5, &BLUE)),
+//     )
+//     .unwrap();
 
-    ctx.draw_series(DATA2.iter().map(|point| Circle::new(*point, 5, &RED)))
-        .unwrap();
-}
-const DATA1: [(i32, i32); 30] = [
-    (-3, 1),
-    (-2, 3),
-    (4, 2),
-    (3, 0),
-    (6, -5),
-    (3, 11),
-    (6, 0),
-    (2, 14),
-    (3, 9),
-    (14, 7),
-    (8, 11),
-    (10, 16),
-    (7, 15),
-    (13, 8),
-    (17, 14),
-    (13, 17),
-    (19, 11),
-    (18, 8),
-    (15, 8),
-    (23, 23),
-    (15, 20),
-    (22, 23),
-    (22, 21),
-    (21, 30),
-    (19, 28),
-    (22, 23),
-    (30, 23),
-    (26, 35),
-    (33, 19),
-    (26, 19),
-];
-const DATA2: [(i32, i32); 30] = [
-    (1, 22),
-    (0, 22),
-    (1, 20),
-    (2, 24),
-    (4, 26),
-    (6, 24),
-    (5, 27),
-    (6, 27),
-    (7, 27),
-    (8, 30),
-    (10, 30),
-    (10, 33),
-    (12, 34),
-    (13, 31),
-    (15, 35),
-    (14, 33),
-    (17, 36),
-    (16, 35),
-    (17, 39),
-    (19, 38),
-    (21, 38),
-    (22, 39),
-    (23, 43),
-    (24, 44),
-    (24, 46),
-    (26, 47),
-    (27, 48),
-    (26, 49),
-    (28, 47),
-    (28, 50),
-];
+//     ctx.draw_series(DATA2.iter().map(|point| Circle::new(*point, 5, &RED)))
+//         .unwrap();
+// }
+// const DATA1: [(i32, i32); 30] = [
+//     (-3, 1),
+//     (-2, 3),
+//     (4, 2),
+//     (3, 0),
+//     (6, -5),
+//     (3, 11),
+//     (6, 0),
+//     (2, 14),
+//     (3, 9),
+//     (14, 7),
+//     (8, 11),
+//     (10, 16),
+//     (7, 15),
+//     (13, 8),
+//     (17, 14),
+//     (13, 17),
+//     (19, 11),
+//     (18, 8),
+//     (15, 8),
+//     (23, 23),
+//     (15, 20),
+//     (22, 23),
+//     (22, 21),
+//     (21, 30),
+//     (19, 28),
+//     (22, 23),
+//     (30, 23),
+//     (26, 35),
+//     (33, 19),
+//     (26, 19),
+// ];
+// const DATA2: [(i32, i32); 30] = [
+//     (1, 22),
+//     (0, 22),
+//     (1, 20),
+//     (2, 24),
+//     (4, 26),
+//     (6, 24),
+//     (5, 27),
+//     (6, 27),
+//     (7, 27),
+//     (8, 30),
+//     (10, 30),
+//     (10, 33),
+//     (12, 34),
+//     (13, 31),
+//     (15, 35),
+//     (14, 33),
+//     (17, 36),
+//     (16, 35),
+//     (17, 39),
+//     (19, 38),
+//     (21, 38),
+//     (22, 39),
+//     (23, 43),
+//     (24, 44),
+//     (24, 46),
+//     (26, 47),
+//     (27, 48),
+//     (26, 49),
+//     (28, 47),
+//     (28, 50),
+// ];
