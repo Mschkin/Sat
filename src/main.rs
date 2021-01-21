@@ -2,9 +2,8 @@ mod dpll;
 //use plotters::prelude::*;
 
 fn main() {
-
     //solve("inputs/test/unsat/op5.cnf");
-    let paths = std::fs::read_dir("inputs/test/sat").unwrap();
+    let paths = std::fs::read_dir("inputs/test/unsat").unwrap();
     for path in paths {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.ends_with(".cnf") {
@@ -15,7 +14,7 @@ fn main() {
 }
 
 fn solve(path: &str) {
-    let mut solver = dpll::DPLL::new(path, 1);
+    let mut solver = dpll::DPLL::new(path, 4);
     solver.dpll();
     if solver.unsat {
         println!("s UNSATISFIABLE");

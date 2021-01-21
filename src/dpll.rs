@@ -71,24 +71,24 @@ impl DPLL {
                             clause.signs.push(lit > 0);
                             clause.free_variables_qty += 1;
                             if lit > 0 {
-                                variables[(lit.abs() - 1) as usize].pos_occ.push(
-                                    clauses.len(),
-                                );
+                                variables[(lit.abs() - 1) as usize]
+                                    .pos_occ
+                                    .push(clauses.len());
                                 variables[(lit.abs() - 1) as usize].pos_occ_not_sat_qty += 1;
                             } else {
-                                variables[(lit.abs() - 1) as usize].neg_occ.push(
-                                    clauses.len(),
-                                );
+                                variables[(lit.abs() - 1) as usize]
+                                    .neg_occ
+                                    .push(clauses.len());
                                 variables[(lit.abs() - 1) as usize].neg_occ_not_sat_qty += 1;
                             }
                         } else {
                             // ignore clauses containing both x and -x
                             if clause.signs[clause
-                                                .variables
-                                                .iter()
-                                                .position(|&x| x == (lit.abs() - 1) as usize)
-                                                .unwrap()] !=
-                                (lit > 0)
+                                .variables
+                                .iter()
+                                .position(|&x| x == (lit.abs() - 1) as usize)
+                                .unwrap()]
+                                != (lit > 0)
                             {
                                 push = false;
                                 for i in 0..clause.variables.len() {
@@ -164,8 +164,8 @@ impl DPLL {
             }
             self.backtracking_stack.push((variable_index, forced))
         } else if self.variables[variable_index].value != value as usize {
-            if self.variables[variable_index].pos_occ_not_sat_qty > 0 ||
-                self.variables[variable_index].neg_occ_not_sat_qty > 0
+            if self.variables[variable_index].pos_occ_not_sat_qty > 0
+                || self.variables[variable_index].neg_occ_not_sat_qty > 0
             {
                 self.conflict = true
             }
@@ -201,7 +201,6 @@ impl DPLL {
         } else if self.clauses[clause_index].sat_by == self.variables.len() {
             self.clauses[clause_index].free_variables_qty += 1;
         }
-
     }
 
     fn unit_prop(&mut self, clause_index: usize) {
@@ -236,10 +235,46 @@ impl DPLL {
                     }
                 } else {
                     self.variables[variable_index].neg_occ_not_sat_qty -= 1;
-                    if self.variables[variable_index].neg_occ_not_sat_qty == 0 &&
-                        self.variables[variable_index].pos_occ_not_sat_qty != 0
+                    if self.variables[variable_index].neg_occ_not_sat_qty == 0
+                        && self.variables[variable_index].pos_occ_not_sat_qty != 0
                     {
                         self.queue.push((variable_index, true));
+                    }
+                }
+            }
+        }
+    }
+
+    fn update_occ_len(&mut self) {
+        for i in 0..self.clauses.len() {
+            if self.clauses[i].sat_by == self.variables.len() {
+                for j in 0..self.clauses[i].variables.len() {
+                    if self.clauses[i].free_variables_qty >= 2 {
+                        if self.clauses[i].signs[j] {
+                            while self.variables[self.clauses[i].variables[j]]
+                                .pos_occ_len
+                                .len()
+                                <= self.clauses[i].variables.len() - 2
+                            {
+                                self.variables[self.clauses[i].variables[j]]
+                                    .pos_occ_len
+                                    .push(0);
+                            }
+                            self.variables[self.clauses[i].variables[j]].pos_occ_len
+                                [self.clauses[i].free_variables_qty - 2] += 1;
+                        } else {
+                            while self.variables[self.clauses[i].variables[j]]
+                                .neg_occ_len
+                                .len()
+                                <= self.clauses[i].variables.len() - 2
+                            {
+                                self.variables[self.clauses[i].variables[j]]
+                                    .neg_occ_len
+                                    .push(0);
+                            }
+                            self.variables[self.clauses[i].variables[j]].neg_occ_len
+                                [self.clauses[i].free_variables_qty - 2] += 1;
+                        }
                     }
                 }
             }
@@ -251,15 +286,15 @@ impl DPLL {
         let mut max_occurrence = 0;
         let mut value = false;
         for index in 0..self.variables.len() {
-            if self.variables[index].pos_occ_not_sat_qty > max_occurrence &&
-                self.variables[index].value == 2
+            if self.variables[index].pos_occ_not_sat_qty > max_occurrence
+                && self.variables[index].value == 2
             {
                 variable_index = index;
                 max_occurrence = self.variables[index].pos_occ_not_sat_qty;
                 value = true;
             }
-            if self.variables[index].neg_occ_not_sat_qty > max_occurrence &&
-                self.variables[index].value == 2
+            if self.variables[index].neg_occ_not_sat_qty > max_occurrence
+                && self.variables[index].value == 2
             {
                 variable_index = index;
                 max_occurrence = self.variables[index].neg_occ_not_sat_qty;
@@ -278,15 +313,15 @@ impl DPLL {
         let mut max_occurrence = 0;
         let mut value = false;
         for index in 0..self.variables.len() {
-            if self.variables[index].pos_occ_not_sat_qty +
-                self.variables[index].neg_occ_not_sat_qty > max_occurrence &&
-                self.variables[index].value == 2
+            if self.variables[index].pos_occ_not_sat_qty + self.variables[index].neg_occ_not_sat_qty
+                > max_occurrence
+                && self.variables[index].value == 2
             {
                 variable_index = index;
-                max_occurrence = self.variables[index].pos_occ_not_sat_qty +
-                    self.variables[index].neg_occ_not_sat_qty;
-                if self.variables[index].pos_occ_not_sat_qty >=
-                    self.variables[index].neg_occ_not_sat_qty
+                max_occurrence = self.variables[index].pos_occ_not_sat_qty
+                    + self.variables[index].neg_occ_not_sat_qty;
+                if self.variables[index].pos_occ_not_sat_qty
+                    >= self.variables[index].neg_occ_not_sat_qty
                 {
                     value = true;
                 } else {
@@ -311,32 +346,28 @@ impl DPLL {
         for i in 0..self.variables.len() {
             if self.variables[i].value == 2 {
                 k = 0;
-                while self.variables[i].pos_occ_len[k] == 0 &&
-                    self.variables[i].neg_occ_len[k] == 0
+                while self.variables[i].pos_occ_len[k] == 0 && self.variables[i].neg_occ_len[k] == 0
                 {
                     k += 1
                 }
                 if k < shortest_len {
                     shortest_len = k;
-                    momscore = (self.variables[i].pos_occ_len[k] +
-                                    self.variables[i].neg_occ_len[k]) *
-                        constant +
-                        self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
+                    momscore = (self.variables[i].pos_occ_len[k]
+                        + self.variables[i].neg_occ_len[k])
+                        * constant
+                        + self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
                     variable = i;
                     value = self.variables[i].pos_occ_len[k] > self.variables[i].neg_occ_len[k];
-
-                } else if k == shortest_len &&
-                           momscore <
-                               (self.variables[i].pos_occ_len[k] +
-                                    self.variables[i].neg_occ_len[k]) *
-                                   constant +
-                                   self.variables[i].pos_occ_len[k] *
-                                       self.variables[i].neg_occ_len[k]
+                } else if k == shortest_len
+                    && momscore
+                        < (self.variables[i].pos_occ_len[k] + self.variables[i].neg_occ_len[k])
+                            * constant
+                            + self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k]
                 {
-                    momscore = (self.variables[i].pos_occ_len[k] +
-                                    self.variables[i].neg_occ_len[k]) *
-                        constant +
-                        self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
+                    momscore = (self.variables[i].pos_occ_len[k]
+                        + self.variables[i].neg_occ_len[k])
+                        * constant
+                        + self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
                     variable = i;
                     value = self.variables[i].pos_occ_len[k] > self.variables[i].neg_occ_len[k];
                 }
@@ -350,27 +381,27 @@ impl DPLL {
     }
 
     fn jw(&mut self) -> (usize, bool) {
-        let mut jwscore = 0;
+        let mut jwscore = 0.;
         let mut variable = self.variables.len();
         let mut value = false;
         for i in 0..self.variables.len() {
             if self.variables[i].value == 2 {
-                let mut new_jw = 0;
-                let mut weight = 1 / 4;
-                for i in 0..self.variables[i].pos_occ_len.len() {
-                    new_jw += weight * self.variables[i].pos_occ_len[i];
-                    weight = weight / 2;
+                let mut new_jw = 0.;
+                let mut weight = 1. / 4.;
+                for j in 0..self.variables[i].pos_occ_len.len() {
+                    new_jw += weight * self.variables[i].pos_occ_len[j] as f64;
+                    weight = weight / 2.;
                 }
                 if new_jw > jwscore {
                     jwscore = new_jw;
                     variable = i;
                     value = true;
                 }
-                let mut new_jw = 0;
-                let mut weight = 1 / 4;
-                for i in 0..self.variables[i].neg_occ_len.len() {
-                    new_jw += weight * self.variables[i].neg_occ_len[i];
-                    weight = weight / 2;
+                let mut new_jw = 0.;
+                let mut weight = 1. / 4.;
+                for j in 0..self.variables[i].neg_occ_len.len() {
+                    new_jw += weight * self.variables[i].neg_occ_len[j] as f64;
+                    weight = weight / 2.;
                 }
                 if new_jw > jwscore {
                     jwscore = new_jw;
@@ -384,13 +415,12 @@ impl DPLL {
             return (variable, true);
         }
         (variable, value)
-
     }
 
     fn occurrence_count(&self, variable: usize, occ: usize, pos: bool) -> usize {
-        if pos && self.variables[variable].pos_occ_len.len() >= occ {
+        if pos && self.variables[variable].pos_occ_len.len() <= occ {
             return 0;
-        } else if !pos && self.variables[variable].neg_occ_len.len() >= occ {
+        } else if !pos && self.variables[variable].neg_occ_len.len() <= occ {
             return 0;
         }
         if pos {
@@ -409,43 +439,42 @@ impl DPLL {
         let beta = 2;
         for i in 0..self.variables.len() {
             if self.variables[i].value == 2 {
-                if maxlen <
-                    std::cmp::max(
-                        self.variables[variable].pos_occ_len.len(),
-                        self.variables[variable].neg_occ_len.len(),
+                if maxlen
+                    < std::cmp::max(
+                        self.variables[i].pos_occ_len.len(),
+                        self.variables[i].neg_occ_len.len(),
                     )
                 {
                     maxlen = std::cmp::max(
-                        self.variables[variable].pos_occ_len.len(),
-                        self.variables[variable].neg_occ_len.len(),
+                        self.variables[i].pos_occ_len.len(),
+                        self.variables[i].neg_occ_len.len(),
                     );
                 }
                 for mut j in 0..hs.len() {
-
-                    let hnew = alpha *
-                        std::cmp::max(
+                    let hnew = alpha
+                        * std::cmp::max(
                             self.occurrence_count(i, j, true),
                             self.occurrence_count(i, j, false),
-                        ) +
-                        beta *
-                            std::cmp::min(
+                        )
+                        + beta
+                            * std::cmp::min(
                                 self.occurrence_count(i, j, true),
                                 self.occurrence_count(i, j, false),
                             );
                     if hnew > hs[j] {
                         variable = i;
-                        value = self.variables[variable].pos_occ_not_sat_qty >
-                            self.variables[variable].neg_occ_not_sat_qty;
+                        value = self.variables[i].pos_occ_not_sat_qty
+                            > self.variables[i].neg_occ_not_sat_qty;
                         hs[j] = hnew;
                         while j < maxlen {
                             j += 1;
-                            hs[j] = alpha *
-                                std::cmp::max(
+                            hs[j] = alpha
+                                * std::cmp::max(
                                     self.occurrence_count(i, j, true),
                                     self.occurrence_count(i, j, false),
-                                ) +
-                                beta *
-                                    std::cmp::min(
+                                )
+                                + beta
+                                    * std::cmp::min(
                                         self.occurrence_count(i, j, true),
                                         self.occurrence_count(i, j, false),
                                     );
@@ -455,7 +484,6 @@ impl DPLL {
                         break;
                     }
                 }
-
             }
         }
         if variable == self.variables.len() {
@@ -463,7 +491,6 @@ impl DPLL {
             return (variable, true);
         }
         (variable, value)
-
     }
 
     fn backtrack(&mut self) {
@@ -497,6 +524,12 @@ impl DPLL {
                     self.backtrack();
                     self.conflict = false;
                 }
+            }
+            if self.unsat || self.solved {
+                return;
+            }
+            if self.heuristic>1{
+                self.update_occ_len();
             }
             let next_choice: (usize, bool);
             if self.heuristic == 0 {
@@ -533,8 +566,8 @@ impl DPLL {
         for i in 0..self.clauses.len() {
             let mut sat = false;
             for j in 0..self.clauses[i].variables.len() {
-                if self.clauses[i].signs[j] as usize ==
-                    self.variables[self.clauses[i].variables[j]].value
+                if self.clauses[i].signs[j] as usize
+                    == self.variables[self.clauses[i].variables[j]].value
                 {
                     sat = true;
                     break;
