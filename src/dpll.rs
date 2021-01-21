@@ -146,7 +146,7 @@ impl DPLL {
             if variables[i].pos_occ_not_sat_qty == 0 {
                 queue.push((i, false));
             }
-            if variables[i].neg_occ_not_sat_qty == 0 {
+            if variables[i].neg_occ_not_sat_qty == 0 && variables[i].pos_occ_not_sat_qty != 0 {
                 queue.push((i, true));
             }
         }
@@ -190,7 +190,11 @@ impl DPLL {
             }
             self.backtracking_stack.push((variable_index, forced))
         } else if self.variables[variable_index].value != value as usize {
-            self.conflict = true
+            if self.variables[variable_index].pos_occ_not_sat_qty > 0 ||
+                self.variables[variable_index].neg_occ_not_sat_qty > 0
+            {
+                self.conflict = true
+            }
         }
     }
 
@@ -214,14 +218,18 @@ impl DPLL {
                     if self.clauses[clause_index].signs[j] {
                         self.variables[self.clauses[clause_index].variables[j]]
                             .pos_occ_not_sat_qty += 1;
-                        if self.heuristic > 1 && self.clauses[clause_index].free_variables_qty > 2 {
+                        if self.heuristic > 1 &&
+                            self.clauses[clause_index].free_variables_qty >= 2
+                        {
                             self.variables[self.clauses[clause_index].variables[j]].pos_occ_len
                                 [self.clauses[clause_index].free_variables_qty - 2] += 1;
                         }
                     } else {
                         self.variables[self.clauses[clause_index].variables[j]]
                             .neg_occ_not_sat_qty += 1;
-                        if self.heuristic > 1 && self.clauses[clause_index].free_variables_qty > 2 {
+                        if self.heuristic > 1 &&
+                            self.clauses[clause_index].free_variables_qty >= 2
+                        {
                             self.variables[self.clauses[clause_index].variables[j]].neg_occ_len
                                 [self.clauses[clause_index].free_variables_qty - 2] += 1;
                         }
@@ -230,7 +238,7 @@ impl DPLL {
             }
         } else if self.clauses[clause_index].sat_by == self.variables.len() {
             self.clauses[clause_index].free_variables_qty += 1;
-            if self.heuristic > 1 && self.clauses[clause_index].free_variables_qty > 2 {
+            if self.heuristic > 1 && self.clauses[clause_index].free_variables_qty >= 2 {
                 for j in 0..self.clauses[clause_index].variables.len() {
                     if self.variables[self.clauses[clause_index].variables[j]].value == 2 {
                         if self.clauses[clause_index].signs[j] {
@@ -254,7 +262,23 @@ impl DPLL {
     fn unit_prop(&mut self, clause_index: usize) {
         if self.clauses[clause_index].sat_by == self.variables.len() {
             self.clauses[clause_index].free_variables_qty -= 1;
-            if self.clauses[clause_index].free_variables_qty == 0 {
+            if self.clauses[clause_index].free_variables_qty > 1 {
+                for i in 0..self.clauses[clause_index].variables.len() {
+                    if self.variables[self.clauses[clause_index].variables[i]].value == 2 {
+                        if self.clauses[clause_index].signs[i] {
+                            self.variables[self.clauses[clause_index].variables[i]].pos_occ_len
+                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
+                            self.variables[self.clauses[clause_index].variables[i]].pos_occ_len
+                                [self.clauses[clause_index].free_variables_qty - 1] -= 1;
+                        } else {
+                            self.variables[self.clauses[clause_index].variables[i]].neg_occ_len
+                                [self.clauses[clause_index].free_variables_qty - 2] += 1;
+                            self.variables[self.clauses[clause_index].variables[i]].neg_occ_len
+                                [self.clauses[clause_index].free_variables_qty - 1] -= 1;
+                        }
+                    }
+                }
+            } else if self.clauses[clause_index].free_variables_qty == 0 {
                 self.conflict = true;
             } else if self.clauses[clause_index].free_variables_qty == 1 {
                 self.queue.push(self.get_unit_prop(clause_index));
@@ -306,7 +330,7 @@ impl DPLL {
     fn dlis(&mut self) -> (usize, bool) {
         let mut variable_index = self.variables.len();
         let mut max_occurrence = 0;
-        let mut value=false;
+        let mut value = false;
         for index in 0..self.variables.len() {
             if self.variables[index].pos_occ_not_sat_qty > max_occurrence &&
                 self.variables[index].value == 2
@@ -333,7 +357,7 @@ impl DPLL {
     fn dlcs(&mut self) -> (usize, bool) {
         let mut variable_index = self.variables.len();
         let mut max_occurrence = 0;
-        let mut value= false;
+        let mut value = false;
         for index in 0..self.variables.len() {
             if self.variables[index].pos_occ_not_sat_qty +
                 self.variables[index].neg_occ_not_sat_qty > max_occurrence &&
@@ -417,7 +441,7 @@ impl DPLL {
         }
         let switch_value = self.variables[variable_index].value == 0;
         self.unset_value(variable_index);
-        self.set_value(variable_index, switch_value, true);
+        self.queue.push((variable_index, switch_value));
     }
 
     pub fn dpll(&mut self) {
@@ -444,14 +468,12 @@ impl DPLL {
                     }
                 }
             }
-            //println!("{} {}",sats,free);
-            //println!("{:?} {:?}",self.backtracking_stack,self.queue);
             while self.queue.len() > 0 {
                 let tup = self.queue.pop().unwrap();
                 let next_variable = tup.0;
                 let next_value = tup.1;
                 self.set_value(next_variable, next_value, true);
-                while self.conflict {
+                if self.conflict {
                     //println!("conflict!!!!!");
                     self.queue.clear();
                     self.backtrack();

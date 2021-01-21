@@ -1,6 +1,7 @@
 mod dpll;
 
 fn main() {
+    //solve("inputs/test/sat/rand6.cnf");
     let paths = std::fs::read_dir("inputs/test/sat").unwrap();
     for path in paths {
         let path_str = &format!("{}", path.unwrap().path().display());
@@ -12,7 +13,7 @@ fn main() {
 }
 
 fn solve(path: &str) {
-    let mut solver = dpll::DPLL::new(path, 2);
+    let mut solver = dpll::DPLL::new(path, 0);
     solver.dpll();
     if solver.unsat {
         println!("s UNSATISFIABLE");
