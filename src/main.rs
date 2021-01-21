@@ -58,7 +58,6 @@ fn solve(path: &str,heuristic:usize) -> (bool, u128) {
 
 fn benchmark(heuristic:usize) {
     let mut paths = std::fs::read_dir("inputs/sat").unwrap();
-    //paths.append(&mut std::fs::read_dir("inputs/unsat").unwrap());
     let mut aim_time = Vec::<i32>::new();
     let mut ii_time = Vec::<i32>::new();
     let mut par_time = Vec::<i32>::new();
@@ -201,7 +200,7 @@ fn ploter(
     ssa: Vec<(i32, i32)>,
     uf50: Vec<(i32, i32)>,
 ) {
-    let root_area = BitMapBackend::new("test.png", (600, 400)).into_drawing_area();
+    let root_area = BitMapBackend::new("benchmark.png", (600, 400)).into_drawing_area();
     root_area.fill(&WHITE).unwrap();
 
     let mut ctx = ChartBuilder::on(&root_area)
