@@ -15,13 +15,13 @@ fn main() {
     benchmark();
 }
 
-fn solve(path: &str)->(bool,u128) {
-    let mut solver = dpll::DPLL::new(path, 4);
+fn solve(path: &str) -> (bool, u128) {
+    let mut solver = dpll::DPLL::new(path, 2);
     solver.dpll();
     if solver.unsat {
         println!("s UNSATISFIABLE");
         println!("{:?}", solver.duration);
-        (true,solver.duration.as_nanos())
+        (true, solver.duration.as_nanos())
     } else if solver.solved {
         let mut sol = Vec::<i32>::new();
         let mut sol_str = String::from("s SATISFIABLE\nv");
@@ -41,52 +41,52 @@ fn solve(path: &str)->(bool,u128) {
             println!("Incorrect!");
         }
         println!("{:?}", solver.duration);
-        (true,solver.duration.as_nanos())
+        (true, solver.duration.as_nanos())
     } else {
         println!("Timeout!");
-        (false,0)
+        (false, 0)
     }
 }
 
-fn benchmark(){
+fn benchmark() {
     let mut paths = std::fs::read_dir("inputs/sat").unwrap();
     //paths.append(&mut std::fs::read_dir("inputs/unsat").unwrap());
-    let mut aim_time=Vec::<f64>::new();
-    let mut ii_time=Vec::<f64>::new();
-    let mut par_time=Vec::<f64>::new();
-    let mut ssa_time=Vec::<f64>::new();
-    let mut uf50_time=Vec::<f64>::new();
+    let mut aim_time = Vec::<i32>::new();
+    let mut ii_time = Vec::<i32>::new();
+    let mut par_time = Vec::<i32>::new();
+    let mut ssa_time = Vec::<i32>::new();
+    let mut uf50_time = Vec::<i32>::new();
     for path in paths {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.contains("aim") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                aim_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                aim_time.push(sol.1 as i32 );
             }
         } else if path_str.contains("ii") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                ii_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                ii_time.push(sol.1 as i32 );
             }
-        }else if path_str.contains("par") {
+        } else if path_str.contains("par") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                par_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                par_time.push(sol.1 as i32 );
             }
-        }else if path_str.contains("ssa") {
+        } else if path_str.contains("ssa") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                ssa_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                ssa_time.push(sol.1 as i32);
             }
-        }else if path_str.contains("uf50") {
+        } else if path_str.contains("uf50") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                uf50_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                uf50_time.push(sol.1 as i32 );
             }
         }
     }
@@ -95,72 +95,87 @@ fn benchmark(){
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.contains("aim") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                aim_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                aim_time.push(sol.1 as i32);
             }
         } else if path_str.contains("ii") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                ii_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                ii_time.push(sol.1 as i32);
             }
-        }else if path_str.contains("par") {
+        } else if path_str.contains("par") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                par_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                par_time.push(sol.1 as i32);
             }
-        }else if path_str.contains("ssa") {
+        } else if path_str.contains("ssa") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                ssa_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                ssa_time.push(sol.1 as i32);
             }
-        }else if path_str.contains("uf50") {
+        } else if path_str.contains("uf50") {
             println!("{}", path_str);
-            let sol=solve(path_str);
-            if sol.0{
-                uf50_time.push(sol.1 as f64/1000000.);
+            let sol = solve(path_str);
+            if sol.0 {
+                uf50_time.push(sol.1 as i32 );
             }
         }
     }
-    aim_time.sort_by(|a,b| a.partial_cmp(b).unwrap());
-    ii_time.sort_by(|a,b| a.partial_cmp(b).unwrap());
-    par_time.sort_by(|a,b| a.partial_cmp(b).unwrap());
-    ssa_time.sort_by(|a,b| a.partial_cmp(b).unwrap());
-    uf50_time.sort_by(|a,b| a.partial_cmp(b).unwrap());
-    println!("{:?}",aim_time);
-    println!("{:?}",ii_time);
-    println!("{:?}",par_time);
-    println!("{:?}",ssa_time);
-    println!("{:?}",uf50_time);
-    let mut aim_tup =Vec::<(f64,f64)>::new();
-    for i in 0..aim_time.len(){
-        aim_tup.push((i as f64,aim_time(i)));
+    aim_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    ii_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    par_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    ssa_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    uf50_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    println!("{:?}", aim_time);
+    println!("{:?}", ii_time);
+    println!("{:?}", par_time);
+    println!("{:?}", ssa_time);
+    println!("{:?}", uf50_time);
+    let mut aim_tup = Vec::<(i32, i32)>::new();
+    let mut total_time=0;
+    for i in 0..aim_time.len() {
+        total_time+=aim_time[i]
+        aim_tup.push((i as i32,total_time ));
     }
-    let mut ii_tup =Vec::<(f64,f64)>::new();
-    for i in 0..ii_time.len(){
-        ii_tup.push((i as f64,aim_time(i)));
+    total_time=0;
+    let mut ii_tup = Vec::<(i32, i32)>::new();
+    for i in 0..ii_time.len() {
+        total_time+=ii_time[i]
+        ii_tup.push((i as i32, total_time));
     }
-    let mut par_tup =Vec::<(f64,f64)>::new();
-    for i in 0..par_time.len(){
-        par_tup.push((i as f64,aim_time(i)));
+    total_time=0;
+    let mut par_tup = Vec::<(i32, i32)>::new();
+    for i in 0..par_time.len() {
+        total_time+=par_time[i]
+        par_tup.push((i as i32, total_time));
     }
-    let mut ssa_tup =Vec::<(f64,f64)>::new();
-    for i in 0..ssa_time.len(){
-        ssa_tup.push((i as f64,aim_time(i)));
+    total_time=0;
+    let mut ssa_tup = Vec::<(i32, i32)>::new();
+    for i in 0..ssa_time.len() {
+        total_time+=ssa_time[i]
+        ssa_tup.push((i as i32, total_time));
     }
-    let mut uf50_tup =Vec::<(f64,f64)>::new();
-    for i in 0..uf50_time.len(){
-        uf50_tup.push((i as f64,aim_time(i)));
+    total_time=0;
+    let mut uf50_tup = Vec::<(i32, i32)>::new();
+    for i in 0..uf50_time.len() {
+        total_time+=uf50_time[i]
+        uf50_tup.push((i as i32, total_time));
     }
-    ploter(aim_tup,ii_tup,par_tup,ssa_tup,uf50_tup);
+    ploter(aim_tup, ii_tup, par_tup, ssa_tup, uf50_tup);
 }
 
-fn ploter(aim:Vec<(f64,f64)>,ii:Vec<(f64,f64)>,par:Vec<(f64,f64)>,ssa:Vec<(f64,f64)>,uf50:Vec<(f64,f64)>) {
-    let root_area = BitMapBackend::new("test.png", (600, 400))
-    .into_drawing_area();
+fn ploter(
+    aim: Vec<(i32, i32)>,
+    ii: Vec<(i32, i32)>,
+    par: Vec<(i32, i32)>,
+    ssa: Vec<(i32, i32)>,
+    uf50: Vec<(i32, i32)>,
+) {
+    let root_area = BitMapBackend::new("test.png", (600, 400)).into_drawing_area();
     root_area.fill(&WHITE).unwrap();
 
     let mut ctx = ChartBuilder::on(&root_area)
@@ -172,25 +187,19 @@ fn ploter(aim:Vec<(f64,f64)>,ii:Vec<(f64,f64)>,par:Vec<(f64,f64)>,ssa:Vec<(f64,f
 
     ctx.configure_mesh().draw().unwrap();
 
-    ctx.draw_series(
-        aim.iter().map(|point| TriangleMarker::new(*point, 5, &BLUE)),
-    )
-    .unwrap();
+    ctx.draw_series(aim.iter().map(
+        |point| TriangleMarker::new(*point, 5, &BLUE),
+    )).unwrap();
 
-    ctx.draw_series(
-        ii.iter().map(|point| TriangleMarker::new(*point, 5, &RED)),
-    )
-    .unwrap();
-    ctx.draw_series(
-        par.iter().map(|point| TriangleMarker::new(*point, 5, &GREEN)),
-    )
-    .unwrap();
-    ctx.draw_series(
-        ssa.iter().map(|point| TriangleMarker::new(*point, 5, &YELLOW)),
-    )
-    .unwrap();
-    ctx.draw_series(
-        uf50.iter().map(|point| TriangleMarker::new(*point, 5, &BLACK)),
-    )
-    .unwrap();
+    ctx.draw_series(ii.iter().map(|point| TriangleMarker::new(*point, 5, &RED)))
+        .unwrap();
+    ctx.draw_series(par.iter().map(
+        |point| TriangleMarker::new(*point, 5, &GREEN),
+    )).unwrap();
+    ctx.draw_series(ssa.iter().map(
+        |point| TriangleMarker::new(*point, 5, &YELLOW),
+    )).unwrap();
+    ctx.draw_series(uf50.iter().map(
+        |point| TriangleMarker::new(*point, 5, &BLACK),
+    )).unwrap();
 }

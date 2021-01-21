@@ -1,4 +1,4 @@
-use std::time::{Duration,Instant};
+use std::time::{Duration, Instant};
 
 #[derive(Debug)]
 struct Clause {
@@ -29,8 +29,8 @@ pub struct DPLL {
     pub unsat: bool,
     heuristic: usize,
     pub solved: bool,
-    start:Instant,
-    pub duration:Duration,
+    start: Instant,
+    pub duration: Duration,
 }
 
 impl DPLL {
@@ -44,7 +44,7 @@ impl DPLL {
         let mut variables_qty: usize = 0;
         for line_number in 0..input.len() {
             let line_elem: Vec<&str> = input[line_number].split_whitespace().collect();
-            if line_elem.len() > 1 && line_elem[0] != "c" {
+            if line_elem.len() > 1 && line_elem[0] != "c"&& line_elem[0] != "0" {
                 if line_elem[0] == "p" {
                     variables_qty = line_elem[2].parse::<usize>().unwrap();
                     for _i in 0..variables_qty {
@@ -68,31 +68,34 @@ impl DPLL {
                         free_variables_qty: 0,
                     };
                     let mut push = true;
-                    for j in 0..line_elem.len() - 1 {
+                    for j in 0..line_elem.len() {
+                        if line_elem[j]=="0"{
+                            break;
+                        }
                         let lit = line_elem[j].parse::<i32>().unwrap();
                         if !clause.variables.contains(&((lit.abs() - 1) as usize)) {
                             clause.variables.push((lit.abs() - 1) as usize);
                             clause.signs.push(lit > 0);
                             clause.free_variables_qty += 1;
                             if lit > 0 {
-                                variables[(lit.abs() - 1) as usize]
-                                    .pos_occ
-                                    .push(clauses.len());
+                                variables[(lit.abs() - 1) as usize].pos_occ.push(
+                                    clauses.len(),
+                                );
                                 variables[(lit.abs() - 1) as usize].pos_occ_not_sat_qty += 1;
                             } else {
-                                variables[(lit.abs() - 1) as usize]
-                                    .neg_occ
-                                    .push(clauses.len());
+                                variables[(lit.abs() - 1) as usize].neg_occ.push(
+                                    clauses.len(),
+                                );
                                 variables[(lit.abs() - 1) as usize].neg_occ_not_sat_qty += 1;
                             }
                         } else {
                             // ignore clauses containing both x and -x
                             if clause.signs[clause
-                                .variables
-                                .iter()
-                                .position(|&x| x == (lit.abs() - 1) as usize)
-                                .unwrap()]
-                                != (lit > 0)
+                                                .variables
+                                                .iter()
+                                                .position(|&x| x == (lit.abs() - 1) as usize)
+                                                .unwrap()] !=
+                                (lit > 0)
                             {
                                 push = false;
                                 for i in 0..clause.variables.len() {
@@ -128,7 +131,7 @@ impl DPLL {
                 queue.push((i, true));
             }
         }
-        let start=Instant::now();
+        let start = Instant::now();
         DPLL {
             clauses: clauses,
             variables: variables,
@@ -138,8 +141,8 @@ impl DPLL {
             unsat: false,
             heuristic: heuristic,
             solved: false,
-            start:start,
-            duration:start.elapsed(),
+            start: start,
+            duration: start.elapsed(),
         }
     }
 
@@ -171,8 +174,8 @@ impl DPLL {
             }
             self.backtracking_stack.push((variable_index, forced))
         } else if self.variables[variable_index].value != value as usize {
-            if self.variables[variable_index].pos_occ_not_sat_qty > 0
-                || self.variables[variable_index].neg_occ_not_sat_qty > 0
+            if self.variables[variable_index].pos_occ_not_sat_qty > 0 ||
+                self.variables[variable_index].neg_occ_not_sat_qty > 0
             {
                 self.conflict = true
             }
@@ -242,8 +245,8 @@ impl DPLL {
                     }
                 } else {
                     self.variables[variable_index].neg_occ_not_sat_qty -= 1;
-                    if self.variables[variable_index].neg_occ_not_sat_qty == 0
-                        && self.variables[variable_index].pos_occ_not_sat_qty != 0
+                    if self.variables[variable_index].neg_occ_not_sat_qty == 0 &&
+                        self.variables[variable_index].pos_occ_not_sat_qty != 0
                     {
                         self.queue.push((variable_index, true));
                     }
@@ -260,8 +263,8 @@ impl DPLL {
                         if self.clauses[i].signs[j] {
                             while self.variables[self.clauses[i].variables[j]]
                                 .pos_occ_len
-                                .len()
-                                <= self.clauses[i].variables.len() - 2
+                                .len() <=
+                                self.clauses[i].variables.len() - 2
                             {
                                 self.variables[self.clauses[i].variables[j]]
                                     .pos_occ_len
@@ -272,8 +275,8 @@ impl DPLL {
                         } else {
                             while self.variables[self.clauses[i].variables[j]]
                                 .neg_occ_len
-                                .len()
-                                <= self.clauses[i].variables.len() - 2
+                                .len() <=
+                                self.clauses[i].variables.len() - 2
                             {
                                 self.variables[self.clauses[i].variables[j]]
                                     .neg_occ_len
@@ -293,15 +296,15 @@ impl DPLL {
         let mut max_occurrence = 0;
         let mut value = false;
         for index in 0..self.variables.len() {
-            if self.variables[index].pos_occ_not_sat_qty > max_occurrence
-                && self.variables[index].value == 2
+            if self.variables[index].pos_occ_not_sat_qty > max_occurrence &&
+                self.variables[index].value == 2
             {
                 variable_index = index;
                 max_occurrence = self.variables[index].pos_occ_not_sat_qty;
                 value = true;
             }
-            if self.variables[index].neg_occ_not_sat_qty > max_occurrence
-                && self.variables[index].value == 2
+            if self.variables[index].neg_occ_not_sat_qty > max_occurrence &&
+                self.variables[index].value == 2
             {
                 variable_index = index;
                 max_occurrence = self.variables[index].neg_occ_not_sat_qty;
@@ -320,15 +323,15 @@ impl DPLL {
         let mut max_occurrence = 0;
         let mut value = false;
         for index in 0..self.variables.len() {
-            if self.variables[index].pos_occ_not_sat_qty + self.variables[index].neg_occ_not_sat_qty
-                > max_occurrence
-                && self.variables[index].value == 2
+            if self.variables[index].pos_occ_not_sat_qty +
+                self.variables[index].neg_occ_not_sat_qty > max_occurrence &&
+                self.variables[index].value == 2
             {
                 variable_index = index;
-                max_occurrence = self.variables[index].pos_occ_not_sat_qty
-                    + self.variables[index].neg_occ_not_sat_qty;
-                if self.variables[index].pos_occ_not_sat_qty
-                    >= self.variables[index].neg_occ_not_sat_qty
+                max_occurrence = self.variables[index].pos_occ_not_sat_qty +
+                    self.variables[index].neg_occ_not_sat_qty;
+                if self.variables[index].pos_occ_not_sat_qty >=
+                    self.variables[index].neg_occ_not_sat_qty
                 {
                     value = true;
                 } else {
@@ -353,28 +356,31 @@ impl DPLL {
         for i in 0..self.variables.len() {
             if self.variables[i].value == 2 {
                 k = 0;
-                while self.variables[i].pos_occ_len[k] == 0 && self.variables[i].neg_occ_len[k] == 0
+                while self.variables[i].pos_occ_len[k] == 0 &&
+                    self.variables[i].neg_occ_len[k] == 0
                 {
                     k += 1
                 }
                 if k < shortest_len {
                     shortest_len = k;
-                    momscore = (self.variables[i].pos_occ_len[k]
-                        + self.variables[i].neg_occ_len[k])
-                        * constant
-                        + self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
+                    momscore = (self.variables[i].pos_occ_len[k] +
+                                    self.variables[i].neg_occ_len[k]) *
+                        constant +
+                        self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
                     variable = i;
                     value = self.variables[i].pos_occ_len[k] > self.variables[i].neg_occ_len[k];
-                } else if k == shortest_len
-                    && momscore
-                        < (self.variables[i].pos_occ_len[k] + self.variables[i].neg_occ_len[k])
-                            * constant
-                            + self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k]
+                } else if k == shortest_len &&
+                           momscore <
+                               (self.variables[i].pos_occ_len[k] +
+                                    self.variables[i].neg_occ_len[k]) *
+                                   constant +
+                                   self.variables[i].pos_occ_len[k] *
+                                       self.variables[i].neg_occ_len[k]
                 {
-                    momscore = (self.variables[i].pos_occ_len[k]
-                        + self.variables[i].neg_occ_len[k])
-                        * constant
-                        + self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
+                    momscore = (self.variables[i].pos_occ_len[k] +
+                                    self.variables[i].neg_occ_len[k]) *
+                        constant +
+                        self.variables[i].pos_occ_len[k] * self.variables[i].neg_occ_len[k];
                     variable = i;
                     value = self.variables[i].pos_occ_len[k] > self.variables[i].neg_occ_len[k];
                 }
@@ -446,8 +452,8 @@ impl DPLL {
         let beta = 2;
         for i in 0..self.variables.len() {
             if self.variables[i].value == 2 {
-                if maxlen
-                    < std::cmp::max(
+                if maxlen <
+                    std::cmp::max(
                         self.variables[i].pos_occ_len.len(),
                         self.variables[i].neg_occ_len.len(),
                     )
@@ -458,30 +464,30 @@ impl DPLL {
                     );
                 }
                 for mut j in 0..hs.len() {
-                    let hnew = alpha
-                        * std::cmp::max(
+                    let hnew = alpha *
+                        std::cmp::max(
                             self.occurrence_count(i, j, true),
                             self.occurrence_count(i, j, false),
-                        )
-                        + beta
-                            * std::cmp::min(
+                        ) +
+                        beta *
+                            std::cmp::min(
                                 self.occurrence_count(i, j, true),
                                 self.occurrence_count(i, j, false),
                             );
                     if hnew > hs[j] {
                         variable = i;
-                        value = self.variables[i].pos_occ_not_sat_qty
-                            > self.variables[i].neg_occ_not_sat_qty;
+                        value = self.variables[i].pos_occ_not_sat_qty >
+                            self.variables[i].neg_occ_not_sat_qty;
                         hs[j] = hnew;
                         while j < maxlen {
                             j += 1;
-                            hs[j] = alpha
-                                * std::cmp::max(
+                            hs[j] = alpha *
+                                std::cmp::max(
                                     self.occurrence_count(i, j, true),
                                     self.occurrence_count(i, j, false),
-                                )
-                                + beta
-                                    * std::cmp::min(
+                                ) +
+                                beta *
+                                    std::cmp::min(
                                         self.occurrence_count(i, j, true),
                                         self.occurrence_count(i, j, false),
                                     );
@@ -519,8 +525,8 @@ impl DPLL {
 
     pub fn dpll(&mut self) {
         //ploter();
-        while !self.unsat && !self.solved && self.duration<=Duration::from_secs(60){
-            self.duration=self.start.elapsed();
+        while !self.unsat && !self.solved && self.duration <= Duration::from_secs(60) {
+            self.duration = self.start.elapsed();
             while self.queue.len() > 0 {
                 let tup = self.queue.pop().unwrap();
                 let next_variable = tup.0;
@@ -536,7 +542,7 @@ impl DPLL {
             if self.unsat || self.solved {
                 return;
             }
-            if self.heuristic>1{
+            if self.heuristic > 1 {
                 self.update_occ_len();
             }
             let next_choice: (usize, bool);
@@ -574,8 +580,8 @@ impl DPLL {
         for i in 0..self.clauses.len() {
             let mut sat = false;
             for j in 0..self.clauses[i].variables.len() {
-                if self.clauses[i].signs[j] as usize
-                    == self.variables[self.clauses[i].variables[j]].value
+                if self.clauses[i].signs[j] as usize ==
+                    self.variables[self.clauses[i].variables[j]].value
                 {
                     sat = true;
                     break;
@@ -596,5 +602,3 @@ fn read_file(path: &str) -> String {
     file.read_to_string(&mut contents).unwrap();
     contents
 }
-
-
