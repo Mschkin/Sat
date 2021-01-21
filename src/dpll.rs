@@ -4,11 +4,58 @@ struct Clause {
     signs: Vec<bool>,
     sat_by: usize,
     free_variables_qty: usize,
+    name:usize,
 }
+impl Clause{
+    fn sat(&mut self,variable:usize,loose_clause_queue:&mut Vec<(usize,bool)>){
+        if self.sat_by==FREE{
+            self.sat_by=variable;
+            for i in 0..self.variables.len(){
+                loose_clause_queue.push((self.variable[i],self.signs[i]);
+            }
+        }
+    }
+
+    fn unsat(&mut self,variable:usize,get_clause_queue:&mut Vec<(usize,bool,usize)>){
+        if self.sat_by==variable{
+            self.sat_by=FREE;
+            for i in 0..self.variables.len(){
+                get_clause_queue.push((self.variable[i],self.signs[i],self.free_variables_qty));
+            }
+        }
+    }
+
+    fn grow(&mut self,get_neighbor_queue:&mut Vec<(usize,bool,usize)>){
+        if self.sat_by==FREE{
+            self.free_variables_qty+=1;
+            for i in 0..self.variables.len(){
+                get_neighbor_queue.push((self.variable[i],self.signs[i],self.free_variables_qty));
+            }
+        }
+    }
+
+    fn shrink(&mut self,variable:usize,loose_neighbor_queue:&mut Vec<(usize,bool,usize)>,unit_prop_queue:&mut Vec<usize>>){
+        if self.sat_by==FREE{
+            self.free_variables_qty-=1;
+            if self.free_variables_qty==1{
+                unit_prop_queue.push(&self.name);
+            }
+            else if self.free_variables_qty==0{
+                conflict=true;
+            }
+            for i in 0..self.variables.len(){
+                loose_neighbor_queue.push((self.variable[i],self.signs[i],self.free_variables_qty));
+            }
+        }
+    }
+}
+
+
 
 #[derive(Debug)]
 pub struct Variable {
     pub value: usize,
+    name:usize,
     pos_occ: Vec<usize>,
     neg_occ: Vec<usize>,
     pos_occ_not_sat_qty: usize,
@@ -16,17 +63,145 @@ pub struct Variable {
     pos_occ_len: Vec<usize>,
     neg_occ_len: Vec<usize>,
 }
+impl Variable{
+    fn set(&mut self,value:bool,forced:bool,&mut backtracking_stack:Vec<(usize, bool)>,  sat_queue:&mut Vec<(usize,usize)>,shrink_queue:&mut Vec<(usize,usize)>){
+        if self.value!=2&&self.value!=value{
+            if self.pos_occ_not_sat_qty>0||self.neg_occ_not_sat_qty>0{
+                conflict=true;
+            }
+        }
+        if self.value==2{
+            self.value=value;
+            backtracking_stack.push((self.name,forced));
+            if value{
+                for i in &self.pos_occ{
+                    sat_queue.push((i,self.name));
+                }
+                for i in &self.neg_occ{
+                    shrink_queue.push((i,self.name));
+                }
+            }
+            else{
+                for i in &self.neg_occ{
+                    sat_queue.push((i,self.name));
+                }
+                for i in &self.pos_occ{
+                    shrink_queue.push((i,self.name));
+                }
+            }
+        }
+    }
+
+    fn unset(&mut self,unsat_queue:&mut Vec<(usize,usize)>,grow_queue:&mut Vec<usize>)){
+        if self.value{
+
+        
+        for i in &self.pos_occ{
+            unsat_queue.push((i,self.name));
+        }
+        for i in &self.neg_occ{
+            grow_queue.push(i);
+        }
+
+
+        } else{
+                    
+        for i in &self.neg_occ{
+            unsat_queue.push((i,self.name));
+        }
+        for i in &self.pos_occ{
+            grow_queue.push(i);
+        }
+        }
+        self.value=2;
+    }
+
+    fn get_neighbor(&mut self,occ:bool,free_variables_qty:usize){
+        if self.value==2{
+            if occ{
+                if free_variables_qty>2{
+                self.pos_occ_len[free_variables_qty-3]-=1;}
+                if free_variables_qty>1{
+                self.pos_occ_len[free_variables_qty-2]+=1;}
+            } else{
+                if free_variables_qty>2{
+                    self.neg_occ_len[free_variables_qty-3]-=1;}
+                    if free_variables_qty>1{
+                    self.neg_occ_len[free_variables_qty-2]+=1;}
+            }
+        }
+    }
+
+    fn loose_neighbor(&mut self,occ:bool,free_variables_qty:usize){
+        if self.value==2{
+            if occ{
+                if free_variables_qty>0{
+                self.pos_occ_len[free_variables_qty-1]-=1;}
+                if free_variables_qty>1{
+                self.pos_occ_len[free_variables_qty-2]+=1;}
+            } else{
+                if free_variables_qty>0{
+                    self.neg_occ_len[free_variables_qty-1]-=1;}
+                    if free_variables_qty>1{
+                    self.neg_occ_len[free_variables_qty-2]+=1;}
+            }
+        }
+    }
+    fn get_clause(&mut self,occ:bool,free_variables_qty:usize){
+        if self.value==2{
+            if occ{
+                self.pos_occ_not_sat_qty+=1;
+                if free_variables_qty>1{
+                self.pos_occ_len[free_variables_qty-2]+=1;}
+            }else{
+                self.neg_occ_not_sat_qty+=1;
+                if free_variables_qty>1{
+                self.neg_occ_len[free_variables_qty-2]+=1;}
+            }
+        }
+    }
+    fn loose_clause(&mut self,occ:bool,free_variables_qty:usize,&mut set_queue:Vec<(usize,bool)>){
+        if self.value==2{
+            if occ{
+                self.pos_occ_not_sat_qty-=1;
+                if self.pos_occ_not_sat_qty==0{
+                    set_queue.push((self.name,false));
+                }
+                if free_variables_qty>1{
+                self.pos_occ_len[free_variables_qty-2]-=1;}
+            }
+            else{
+                self.neg_occ_not_sat_qty-=1;
+                if self.neg_occ_not_sat_qty==0 && self.pos_occ_not_sat_qty !=0{
+                    set_queue.push((self.name,true));
+                }
+                if free_variables_qty>1{
+                self.neg_occ_len[free_variables_qty-2]-=1;}
+            }
+        }}
+
+
+}
 
 #[derive(Debug)]
 pub struct DPLL {
     clauses: Vec<Clause>,
     pub variables: Vec<Variable>,
-    queue: Vec<(usize, bool)>,
+    set_queue: Vec<(usize, bool)>,
     backtracking_stack: Vec<(usize, bool)>,
     conflict: bool,
     pub unsat: bool,
     heuristic: usize,
     solved: bool,
+    sat_queue:Vec<(usize,usize)>,
+    unsat_queue:Vec<usize>,
+    grow_queue:Vec<usize>,
+    shrink_queue:Vec<(usize,usize)>,
+    get_neighbor_queue:Vec<usize>,
+    loose_neighbor_queue:Vec<(usize,bool)>,
+    get_clause_queue:Vec<usize>,
+    loose_clause_queue:Vec<(usize,bool)>,
+    unit_prop_queue:Vec<usize>
 }
 
 impl DPLL {
@@ -295,7 +470,7 @@ impl DPLL {
             } else if self.clauses[clause_index].free_variables_qty == 0 {
                 self.conflict = true;
             } else if self.clauses[clause_index].free_variables_qty == 1 {
-                self.queue.push(self.get_unit_prop(clause_index));
+                self.set_queue.push(self.get_unit_prop(clause_index));
             }
         }
     }
@@ -322,7 +497,7 @@ impl DPLL {
                                                                        2] -= 1;
                     }
                     if self.variables[variable_index].pos_occ_not_sat_qty == 0 {
-                        self.queue.push((variable_index, false));
+                        self.set_queue.push((variable_index, false));
                     }
                 } else {
                     self.variables[variable_index].neg_occ_not_sat_qty -= 1;
@@ -334,7 +509,7 @@ impl DPLL {
                     if self.variables[variable_index].neg_occ_not_sat_qty == 0 &&
                         self.variables[variable_index].pos_occ_not_sat_qty != 0
                     {
-                        self.queue.push((variable_index, true));
+                        self.set_queue.push((variable_index, true));
                     }
                 }
             }
@@ -575,20 +750,39 @@ impl DPLL {
         }
         let switch_value = self.variables[variable_index].value == 0;
         self.unset_value(variable_index);
-        self.queue.push((variable_index, switch_value));
+        self.set_queue.push((variable_index, switch_value));
     }
+
+    fn new_backtrack(&mut self) {
+        let (mut variable_index, mut forced) = self.backtracking_stack.pop().unwrap();
+        while forced {
+            self.variables[variable_index].unset()
+            self.unset_value(variable_index);
+            if self.backtracking_stack.len() == 0 {
+                self.unsat = true;
+                return;
+            }
+            let tup = self.backtracking_stack.pop().unwrap();
+            variable_index = tup.0;
+            forced = tup.1;
+        }
+        let switch_value = self.variables[variable_index].value == 0;
+        self.unset_value(variable_index);
+        self.set_queue.push((variable_index, switch_value));
+    }
+
 
     pub fn dpll(&mut self) {
         ploter();
         while !self.unsat && !self.solved {
-            while self.queue.len() > 0 {
-                let tup = self.queue.pop().unwrap();
+            while self.set_queue.len() > 0 {
+                let tup = self.set_queue.pop().unwrap();
                 let next_variable = tup.0;
                 let next_value = tup.1;
                 self.set_value(next_variable, next_value, true);
                 if self.conflict {
                     //println!("conflict!!!!!");
-                    self.queue.clear();
+                    self.set_queue.clear();
                     self.backtrack();
                     self.conflict = false;
                 }
@@ -629,6 +823,130 @@ impl DPLL {
             }
             if !self.solved {
                 self.set_value(next_choice.0, next_choice.1, false);
+            }
+        }
+    }
+
+    pub fn new_dpll(&mut self){
+        while !self.unsat && !self.solved {
+            while self.set_queue.len() > 0 {
+                let tup = self.set_queue.pop().unwrap();
+                let next_variable = tup.0;
+                let next_value = tup.1;
+                self.variables[next_variable].set(next_value, true,&self.backtracking_stack,&self.sat_queue,&self.shrink_queue);}
+                while self.sat_queue.len()>0&&!self.conflict{
+                    let tup = self.sat_queue.pop().unwrap();
+                    let next_clause = tup.0;
+                    let sat_by = tup.1;
+                    self.clauses[next_clause].sat(sat_by,&self.loose_clause_queue);
+                }
+                while self.unsat_queue.len()>0&&!self.conflict{
+                    let tup = self.unsat_queue.pop().unwrap();
+                    let next_clause = tup.0;
+                    let sat_by = tup.1;
+                    self.clauses[next_clause].unsat(sat_by,&self.get_clause_queue);
+                }
+                while self.grow_queue.len()>0&&!self.conflict{
+                    let tup = self.grow_queue.pop().unwrap();
+                    let next_clause = tup.0;
+                    let sat_by = tup.1;
+                    self.clauses[next_clause].unsat(&self.get_neighbor_queue);
+                }
+                while self.shrink_queue.len()>0&&!self.conflict{
+                    let tup = self.shrink_queue.pop().unwrap();
+                    let next_clause = tup.0;
+                    let next_variable = tup.1;
+                    self.clauses[next_clause].unsat(next_variable,&self.loose_neighbor_queue,&self.unit_prop_queue);
+                }
+                while self.unit_prop_queue.len()>0&&!self.conflict{
+                    let next_clause = self.unit_prop_queue.pop().unwrap();
+                    for i in 0..self.clauses[next_clause].variables.len(){
+                        if self.variables[self.clauses[next_clause].variables[i]].value==2{
+                            self.set_queue((self.clauses[next_clause].variables[i],self.clauses[next_clause].signs[i]));
+                            break;
+                        }
+                    }
+                }
+                while self.get_neighbor_queue.len()>0&&!self.conflict{
+                    let tup=self.get_neighbor_queue.pop().unwrap();
+                    let next_variable=tup.0
+                    let next_occ=tup.1
+                    let next_free_v_qty=tup.2
+                    self.variables[next_variable].get_neighbor(next_occ,next_free_v_qty);
+                }
+                while self.loose_neighbor_queue.len()>0&&!self.conflict{
+                    let tup=self.loose_neighbor_queue.pop().unwrap();
+                    let next_variable=tup.0
+                    let next_occ=tup.1
+                    let next_free_v_qty=tup.2
+                    self.variables[next_variable].loose_neighbor(next_occ,next_free_v_qty);
+                }
+                while self.get_clause_queue.len()>0&&!self.conflict{
+                    let tup=self.get_clause_queue.pop().unwrap();
+                    let next_variable=tup.0
+                    let next_occ=tup.1
+                    let next_free_v_qty=tup.2
+                    self.variables[next_variable].get_clause(next_occ,next_free_v_qty);
+                }
+                while self.loose_clause_queue.len()>0&&!self.conflict{
+                    let tup=self.loose_clause_queue.pop().unwrap();
+                    let next_variable=tup.0
+                    let next_occ=tup.1
+                    let next_free_v_qty=tup.2
+                    self.variables[next_variable].loose_clause(next_occ,next_free_v_qty,self.set_queue);
+                }
+                if self.conflict {
+                    //println!("conflict!!!!!");
+                    self.set_queue.clear();
+                    self.sat_queue.clear();
+                    self.unsat_queue.clear();
+                    self.grow_queue.clear();
+                    self.shrink_queue.clear();
+                    self.unit_prop_queue.clear();
+                    self.get_neighbor_queue.clear();
+                    self.loose_neighbor_queue.clear();
+                    self.get_clause_queue.clear();
+                    self.loose_clause_queue.clear();
+                    self.new_backtrack();
+                    self.conflict = false;
+                }
+            
+            if self.heuristic > 1 {
+                for i in 0..self.variables.len() {
+                    if self.variables[i].pos_occ_not_sat_qty !=
+                        self.variables[i].pos_occ_len.iter().fold(0, |a, &b| a + b)
+                    {
+                        println!(
+                            "ERROR, {:?} {}",
+                            self.variables[i].pos_occ_len,
+                            self.variables[i].pos_occ_not_sat_qty
+                        )
+                    }
+                    if self.variables[i].neg_occ_not_sat_qty !=
+                        self.variables[i].neg_occ_len.iter().fold(0, |a, &b| a + b)
+                    {
+                        println!(
+                            "ERROR, {:?} {}",
+                            self.variables[i].neg_occ_len,
+                            self.variables[i].neg_occ_not_sat_qty
+                        )
+                    }
+                }
+            }
+            let next_choice: (usize, bool);
+            if self.heuristic == 0 {
+                next_choice = self.dlis();
+            } else if self.heuristic == 1 {
+                next_choice = self.dlcs();
+            } else if self.heuristic == 2 {
+                next_choice = self.jw();
+            } else if self.heuristic == 3 {
+                next_choice = self.moms();
+            } else {
+                next_choice = self.boehm();
+            }
+            if !self.solved {
+                self.variables[next_choice.0].set(next_choice.1, false,&self.backtracking_stack,&self.sat_queue,&self.shrink_queue);
             }
         }
     }
