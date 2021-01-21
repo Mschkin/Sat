@@ -16,12 +16,12 @@ fn main() {
 }
 
 fn solve(path: &str) -> (bool, u128) {
-    let mut solver = dpll::DPLL::new(path, 2);
+    let mut solver = dpll::DPLL::new(path, 0);
     solver.dpll();
     if solver.unsat {
         println!("s UNSATISFIABLE");
         println!("{:?}", solver.duration);
-        (true, solver.duration.as_nanos())
+        (true, solver.duration.as_micros())
     } else if solver.solved {
         let mut sol = Vec::<i32>::new();
         let mut sol_str = String::from("s SATISFIABLE\nv");
@@ -41,7 +41,7 @@ fn solve(path: &str) -> (bool, u128) {
             println!("Incorrect!");
         }
         println!("{:?}", solver.duration);
-        (true, solver.duration.as_nanos())
+        (true, solver.duration.as_micros())
     } else {
         println!("Timeout!");
         (false, 0)
@@ -56,6 +56,8 @@ fn benchmark() {
     let mut par_time = Vec::<i32>::new();
     let mut ssa_time = Vec::<i32>::new();
     let mut uf50_time = Vec::<i32>::new();
+    let mut solved_count=0;
+    let mut timeout_count=0;
     for path in paths {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.contains("aim") {
@@ -63,30 +65,45 @@ fn benchmark() {
             let sol = solve(path_str);
             if sol.0 {
                 aim_time.push(sol.1 as i32 );
+                solved_count+=1;
+            }else{
+                timeout_count+=1;
             }
         } else if path_str.contains("ii") {
             println!("{}", path_str);
             let sol = solve(path_str);
             if sol.0 {
                 ii_time.push(sol.1 as i32 );
+                solved_count+=1;
+            }else{
+                timeout_count+=1;
             }
         } else if path_str.contains("par") {
             println!("{}", path_str);
             let sol = solve(path_str);
             if sol.0 {
                 par_time.push(sol.1 as i32 );
+                solved_count+=1;
+            }else{
+                timeout_count+=1;
             }
         } else if path_str.contains("ssa") {
             println!("{}", path_str);
             let sol = solve(path_str);
             if sol.0 {
                 ssa_time.push(sol.1 as i32);
+                solved_count+=1;
+            }else{
+                timeout_count+=1;
             }
         } else if path_str.contains("uf50") {
             println!("{}", path_str);
             let sol = solve(path_str);
             if sol.0 {
                 uf50_time.push(sol.1 as i32 );
+                solved_count+=1;
+            }else{
+                timeout_count+=1;
             }
         }
     }
@@ -130,42 +147,43 @@ fn benchmark() {
     par_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
     ssa_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
     uf50_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    println!("{:?}", aim_time);
-    println!("{:?}", ii_time);
-    println!("{:?}", par_time);
-    println!("{:?}", ssa_time);
-    println!("{:?}", uf50_time);
     let mut aim_tup = Vec::<(i32, i32)>::new();
     let mut total_time=0;
     for i in 0..aim_time.len() {
-        total_time+=aim_time[i]
-        aim_tup.push((i as i32,total_time ));
+        total_time+=aim_time[i];
+        aim_tup.push((i as i32,total_time/1000));
     }
     total_time=0;
     let mut ii_tup = Vec::<(i32, i32)>::new();
     for i in 0..ii_time.len() {
-        total_time+=ii_time[i]
-        ii_tup.push((i as i32, total_time));
+        total_time+=ii_time[i];
+        ii_tup.push((i as i32, total_time/1000));
     }
     total_time=0;
     let mut par_tup = Vec::<(i32, i32)>::new();
     for i in 0..par_time.len() {
-        total_time+=par_time[i]
-        par_tup.push((i as i32, total_time));
+        total_time+=par_time[i];
+        par_tup.push((i as i32, total_time/1000));
     }
     total_time=0;
     let mut ssa_tup = Vec::<(i32, i32)>::new();
     for i in 0..ssa_time.len() {
-        total_time+=ssa_time[i]
-        ssa_tup.push((i as i32, total_time));
+        total_time+=ssa_time[i];
+        ssa_tup.push((i as i32, total_time/1000));
     }
     total_time=0;
     let mut uf50_tup = Vec::<(i32, i32)>::new();
     for i in 0..uf50_time.len() {
-        total_time+=uf50_time[i]
-        uf50_tup.push((i as i32, total_time));
+        total_time+=uf50_time[i];
+        uf50_tup.push((i as i32, total_time/1000));
     }
+    println!("{:?}", aim_tup);
+    println!("{:?}", ii_tup);
+    println!("{:?}", par_tup);
+    println!("{:?}", ssa_tup);
+    println!("{:?}", uf50_tup);
     ploter(aim_tup, ii_tup, par_tup, ssa_tup, uf50_tup);
+    println!("solved problems: {}  timeout: {}",solved_count,timeout_count);
 }
 
 fn ploter(
@@ -182,7 +200,7 @@ fn ploter(
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 40)
         .caption("Benchmarks", ("sans-serif", 40))
-        .build_cartesian_2d(0..300, 0..60)
+        .build_cartesian_2d(0..80, 0..150000)
         .unwrap();
 
     ctx.configure_mesh().draw().unwrap();
