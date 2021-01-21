@@ -262,7 +262,7 @@ impl DPLL {
     fn unit_prop(&mut self, clause_index: usize) {
         if self.clauses[clause_index].sat_by == self.variables.len() {
             self.clauses[clause_index].free_variables_qty -= 1;
-            if self.clauses[clause_index].free_variables_qty > 1 {
+            if self.clauses[clause_index].free_variables_qty > 1&&self.heuristic>1 {
                 for i in 0..self.clauses[clause_index].variables.len() {
                     if self.variables[self.clauses[clause_index].variables[i]].value == 2 {
                         if self.clauses[clause_index].signs[i] {
