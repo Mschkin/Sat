@@ -1,22 +1,30 @@
 mod dpll;
 use plotters::prelude::*;
-
+use std::env;
 
 fn main() {
-    //solve("inputs/test/unsat/op5.cnf");
-    // let paths = std::fs::read_dir("inputs/sat").unwrap();
-    // for path in paths {
-    //     let path_str = &format!("{}", path.unwrap().path().display());
-    //     if path_str.ends_with(".cnf") {
-    //         println!("{}", path_str);
-    //         solve(path_str);
-    //     }
-    // }
-    benchmark();
+    let args: Vec<String> = env::args().collect();
+    let mut paths = std::fs::read_dir("inputs/test/sat").unwrap();
+    for path in paths {
+        let path_str = &format!("{}", path.unwrap().path().display());
+        if path_str.ends_with(".cnf") {
+            println!("{}", path_str);
+            solve(path_str,args[1].parse::<usize>().unwrap());
+        }
+    }
+    paths = std::fs::read_dir("inputs/test/unsat").unwrap();
+    for path in paths {
+        let path_str = &format!("{}", path.unwrap().path().display());
+        if path_str.ends_with(".cnf") {
+            println!("{}", path_str);
+            solve(path_str,args[1].parse::<usize>().unwrap());
+        }
+    }
+    benchmark(args[1].parse::<usize>().unwrap());
 }
 
-fn solve(path: &str) -> (bool, u128) {
-    let mut solver = dpll::DPLL::new(path, 0);
+fn solve(path: &str,heuristic:usize) -> (bool, u128) {
+    let mut solver = dpll::DPLL::new(path, heuristic);
     solver.dpll();
     if solver.unsat {
         println!("s UNSATISFIABLE");
@@ -35,11 +43,11 @@ fn solve(path: &str) -> (bool, u128) {
         }
         sol_str.push_str(" 0");
         println!("{}", sol_str);
-        if solver.validate() {
-            println!("Correct!");
-        } else {
-            println!("Incorrect!");
-        }
+        // if solver.validate() {
+        //     println!("Correct!");
+        // } else {
+        //     println!("Incorrect!");
+        // }
         println!("{:?}", solver.duration);
         (true, solver.duration.as_micros())
     } else {
@@ -48,7 +56,7 @@ fn solve(path: &str) -> (bool, u128) {
     }
 }
 
-fn benchmark() {
+fn benchmark(heuristic:usize) {
     let mut paths = std::fs::read_dir("inputs/sat").unwrap();
     //paths.append(&mut std::fs::read_dir("inputs/unsat").unwrap());
     let mut aim_time = Vec::<i32>::new();
@@ -62,7 +70,7 @@ fn benchmark() {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.contains("aim") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 aim_time.push(sol.1 as i32 );
                 solved_count+=1;
@@ -71,7 +79,7 @@ fn benchmark() {
             }
         } else if path_str.contains("ii") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 ii_time.push(sol.1 as i32 );
                 solved_count+=1;
@@ -80,7 +88,7 @@ fn benchmark() {
             }
         } else if path_str.contains("par") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 par_time.push(sol.1 as i32 );
                 solved_count+=1;
@@ -89,7 +97,7 @@ fn benchmark() {
             }
         } else if path_str.contains("ssa") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 ssa_time.push(sol.1 as i32);
                 solved_count+=1;
@@ -98,7 +106,7 @@ fn benchmark() {
             }
         } else if path_str.contains("uf50") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 uf50_time.push(sol.1 as i32 );
                 solved_count+=1;
@@ -112,31 +120,31 @@ fn benchmark() {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.contains("aim") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 aim_time.push(sol.1 as i32);
             }
         } else if path_str.contains("ii") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 ii_time.push(sol.1 as i32);
             }
         } else if path_str.contains("par") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 par_time.push(sol.1 as i32);
             }
         } else if path_str.contains("ssa") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 ssa_time.push(sol.1 as i32);
             }
         } else if path_str.contains("uf50") {
             println!("{}", path_str);
-            let sol = solve(path_str);
+            let sol = solve(path_str,heuristic);
             if sol.0 {
                 uf50_time.push(sol.1 as i32 );
             }
