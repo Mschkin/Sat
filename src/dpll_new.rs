@@ -10,11 +10,11 @@ struct Clause {
 }
 
 impl Clause{
-    fn sat(&mut self,variable:usize,loose_clause_queue:&mut Vec<(usize,bool)>){
+    fn sat(&mut self,variable:usize,lose_clause_queue:&mut Vec<(usize,bool)>){
         if self.sat_by==FREE{
             self.sat_by=variable;
             for i in 0..self.variables.len(){
-                loose_clause_queue.push((self.variable[i],self.signs[i]);
+                lose_clause_queue.push((self.variable[i],self.signs[i]);
             }
         }
     }
@@ -37,17 +37,17 @@ impl Clause{
         }
     }
 
-    fn shrink(&mut self,variable:usize,loose_neighbor_queue:&mut Vec<(usize,bool,usize)>,unit_prop_queue:&mut Vec<usize>>){
+    fn shrink(&mut self,variable:usize,lose_neighbor_queue:&mut Vec<(usize,bool,usize)>,set_queue:&mut Vec<usize>>){
         if self.sat_by==FREE{
             self.free_variables_qty-=1;
             if self.free_variables_qty==1{
-                unit_prop_queue.push(&self.name);
+                set_queue.push(&self.name);
             }
             else if self.free_variables_qty==0{
                 conflict=true;
             }
             for i in 0..self.variables.len(){
-                loose_neighbor_queue.push((self.variable[i],self.signs[i],self.free_variables_qty));
+                lose_neighbor_queue.push((self.variable[i],self.signs[i],self.free_variables_qty));
             }
         }
     }
@@ -99,7 +99,7 @@ impl Variable{
 
         
         for i in &self.pos_occ{
-            unsat_queue.push((i,self.name));
+            unsat_queue.push(i);
         }
         for i in &self.neg_occ{
             grow_queue.push(i);
@@ -109,7 +109,7 @@ impl Variable{
         } else{
                     
         for i in &self.neg_occ{
-            unsat_queue.push((i,self.name));
+            unsat_queue.push(i);
         }
         for i in &self.pos_occ{
             grow_queue.push(i);
@@ -134,7 +134,7 @@ impl Variable{
         }
     }
 
-    fn loose_neighbor(&mut self,occ:bool,free_variables_qty:usize){
+    fn lose_neighbor(&mut self,occ:bool,free_variables_qty:usize){
         if self.value==2{
             if occ{
                 if free_variables_qty>0{
@@ -162,7 +162,7 @@ impl Variable{
             }
         }
     }
-    fn loose_clause(&mut self,occ:bool,free_variables_qty:usize,&mut set_queue:Vec<(usize,bool)>){
+    fn lose_clause(&mut self,occ:bool,free_variables_qty:usize,&mut set_queue:Vec<(usize,bool)>){
         if self.value==2{
             if occ{
                 self.pos_occ_not_sat_qty-=1;
@@ -199,9 +199,9 @@ pub struct DPLL {
     grow_queue:Vec<usize>,
     shrink_queue:Vec<(usize,usize)>,
     get_neighbor_queue:Vec<usize>,
-    loose_neighbor_queue:Vec<(usize,bool)>,
+    lose_neighbor_queue:Vec<(usize,bool)>,
     get_clause_queue:Vec<usize>,
-    loose_clause_queue:Vec<(usize,bool)>,
+    lose_clause_queue:Vec<(usize,bool)>,
     unit_prop_queue:Vec<usize>
     start: Instant,
     pub duration: Duration,
@@ -683,8 +683,15 @@ impl DPLL {
     fn backtrack(&mut self) {
         let (mut variable_index, mut forced) = self.backtracking_stack.pop().unwrap();
         while forced {
-            self.variables[variable_index].unset()
-            self.unset_value(variable_index);
+            self.variables[variable_index].unset(self.unsat_queue,self.grow_queue);
+            while self.unsat_queue.len()>0{
+                let next_clause = self.unsat_queue.pop().unwrap();
+                self.clauses[next_clause].unsat(variable_index,&self.get_clause_queue);
+            }
+            while self.get_clause_queue.len()>0{
+                let next_clause = self.get_clause_queue.pop().unwrap();
+                self.clauses[next_clause].unsat(variable_index,&self.get_clause_queue);
+            }
             if self.backtracking_stack.len() == 0 {
                 self.unsat = true;
                 return;
@@ -700,7 +707,44 @@ impl DPLL {
 
     pub fn dpll(&mut self) {
         while !self.unsat && !self.solved {
-            while self.set_queue.len() > 0 {
+            while self.set_queue.len() > 0&&!self.conflict {
+                let tup = self.set_queue.pop().unwrap();
+                let next_variable = tup.0;
+                let next_value = tup.1;
+                self.variables[next_variable].set(next_value, true,&self.backtracking_stack,&self.sat_queue,&self.shrink_queue);
+                while self.sat_queue.len()>0{
+                    let tup = self.sat_queue.pop().unwrap();
+                    let next_clause = tup.0;
+                    let sat_by = tup.1;
+                    self.clauses[next_clause].sat(sat_by,&self.lose_clause_queue);
+                }
+                while self.lose_clause_queue.len()>0{
+                    let tup=self.lose_clause_queue.pop().unwrap();
+                    let next_variable=tup.0
+                    let next_occ=tup.1
+                    let next_free_v_qty=tup.2
+                    self.variables[next_variable].lose_clause(next_occ,next_free_v_qty,self.set_queue);
+                }
+                while self.shrink_queue.len()>0{
+                    let tup = self.shrink_queue.pop().unwrap();
+                    let next_clause = tup.0;
+                    let next_variable = tup.1;
+                    self.clauses[next_clause].shrink(next_variable,&self.lose_neighbor_queue,&self.set_queue);
+                }
+                while self.lose_neighbor_queue.len()>0{
+                    let tup=self.lose_neighbor_queue.pop().unwrap();
+                    let next_variable=tup.0
+                    let next_occ=tup.1
+                    let next_free_v_qty=tup.2
+                    self.variables[next_variable].lose_neighbor(next_occ,next_free_v_qty);
+                }
+            }
+        }
+    }
+
+    pub fn dpll(&mut self) {
+        while !self.unsat && !self.solved {
+            while self.set_queue.len() > 0 &&!self.conflict{
                 let tup = self.set_queue.pop().unwrap();
                 let next_variable = tup.0;
                 let next_value = tup.1;
@@ -709,7 +753,7 @@ impl DPLL {
                     let tup = self.sat_queue.pop().unwrap();
                     let next_clause = tup.0;
                     let sat_by = tup.1;
-                    self.clauses[next_clause].sat(sat_by,&self.loose_clause_queue);
+                    self.clauses[next_clause].sat(sat_by,&self.lose_clause_queue);
                 }
                 while self.unsat_queue.len()>0&&!self.conflict{
                     let tup = self.unsat_queue.pop().unwrap();
@@ -727,7 +771,7 @@ impl DPLL {
                     let tup = self.shrink_queue.pop().unwrap();
                     let next_clause = tup.0;
                     let next_variable = tup.1;
-                    self.clauses[next_clause].unsat(next_variable,&self.loose_neighbor_queue,&self.unit_prop_queue);
+                    self.clauses[next_clause].unsat(next_variable,&self.lose_neighbor_queue,&self.unit_prop_queue);
                 }
                 while self.unit_prop_queue.len()>0&&!self.conflict{
                     let next_clause = self.unit_prop_queue.pop().unwrap();
@@ -745,12 +789,12 @@ impl DPLL {
                     let next_free_v_qty=tup.2
                     self.variables[next_variable].get_neighbor(next_occ,next_free_v_qty);
                 }
-                while self.loose_neighbor_queue.len()>0&&!self.conflict{
-                    let tup=self.loose_neighbor_queue.pop().unwrap();
+                while self.lose_neighbor_queue.len()>0&&!self.conflict{
+                    let tup=self.lose_neighbor_queue.pop().unwrap();
                     let next_variable=tup.0
                     let next_occ=tup.1
                     let next_free_v_qty=tup.2
-                    self.variables[next_variable].loose_neighbor(next_occ,next_free_v_qty);
+                    self.variables[next_variable].lose_neighbor(next_occ,next_free_v_qty);
                 }
                 while self.get_clause_queue.len()>0&&!self.conflict{
                     let tup=self.get_clause_queue.pop().unwrap();
@@ -759,12 +803,12 @@ impl DPLL {
                     let next_free_v_qty=tup.2
                     self.variables[next_variable].get_clause(next_occ,next_free_v_qty);
                 }
-                while self.loose_clause_queue.len()>0&&!self.conflict{
-                    let tup=self.loose_clause_queue.pop().unwrap();
+                while self.lose_clause_queue.len()>0&&!self.conflict{
+                    let tup=self.lose_clause_queue.pop().unwrap();
                     let next_variable=tup.0
                     let next_occ=tup.1
                     let next_free_v_qty=tup.2
-                    self.variables[next_variable].loose_clause(next_occ,next_free_v_qty,self.set_queue);
+                    self.variables[next_variable].lose_clause(next_occ,next_free_v_qty,self.set_queue);
                 }
                 if self.conflict {
                     //println!("conflict!!!!!");
@@ -775,9 +819,9 @@ impl DPLL {
                     self.shrink_queue.clear();
                     self.unit_prop_queue.clear();
                     self.get_neighbor_queue.clear();
-                    self.loose_neighbor_queue.clear();
+                    self.lose_neighbor_queue.clear();
                     self.get_clause_queue.clear();
-                    self.loose_clause_queue.clear();
+                    self.lose_clause_queue.clear();
                     self.backtrack();
                     self.conflict = false;
                 }
