@@ -4,24 +4,19 @@ use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    if args.len() == 1 {
+        compare_heuristics();
+    }else if args.len() == 2{
+        benchmark(args[1].parse::<usize>().unwrap());
+    }else{
+        if args[1].ends_with(".cnf"){
+            solve(args[1], args[2].parse::<usize>().unwrap());
+        }else{ // folder
+            solve_all(args[1], args[2].parse::<usize>().unwrap());
+        }
+    }
     //solve("inputs/test/unsat/nop2.cnf", args[1].parse::<usize>().unwrap());
-    let mut paths = std::fs::read_dir("inputs/test/sat").unwrap();
-    for path in paths {
-        let path_str = &format!("{}", path.unwrap().path().display());
-        if path_str.ends_with(".cnf") {
-            println!("{}", path_str);
-            solve(path_str, args[1].parse::<usize>().unwrap());
-        }
-    }
-    paths = std::fs::read_dir("inputs/test/unsat").unwrap();
-    for path in paths {
-        let path_str = &format!("{}", path.unwrap().path().display());
-        if path_str.ends_with(".cnf") {
-            println!("{}", path_str);
-            solve(path_str, args[1].parse::<usize>().unwrap());
-        }
-    }
-    benchmark(args[1].parse::<usize>().unwrap());
+    //solve_all("inputs/test/sat", args[1].parse::<usize>().unwrap());  
 }
 
 fn solve(path: &str, heuristic: usize) -> (bool, u128) {
@@ -54,6 +49,17 @@ fn solve(path: &str, heuristic: usize) -> (bool, u128) {
     } else {
         println!("Timeout!");
         (false, 0)
+    }
+}
+
+fn solve_all(path: &str, heuristic: usize) {
+    let paths = std::fs::read_dir(path).unwrap();
+    for path in paths {
+        let path_str = &format!("{}", path.unwrap().path().display());
+        if path_str.ends_with(".cnf") {
+            println!("{}", path_str);
+            solve(path_str, heuristic);
+        }
     }
 }
 
@@ -211,47 +217,19 @@ fn benchmark(heuristic: usize) {
     hole_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
     pret_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let mut aim_tup = Vec::<(i32, i32)>::new();
-    let mut total_time = 0;
-    for i in 0..aim_time.len() {
-        total_time += aim_time[i];
-        aim_tup.push((i as i32, total_time / 1000));
-    }
-    total_time = 0;
     let mut ii_tup = Vec::<(i32, i32)>::new();
-    for i in 0..ii_time.len() {
-        total_time += ii_time[i];
-        ii_tup.push((i as i32, total_time / 1000));
-    }
-    total_time = 0;
     let mut par_tup = Vec::<(i32, i32)>::new();
-    for i in 0..par_time.len() {
-        total_time += par_time[i];
-        par_tup.push((i as i32, total_time / 1000));
-    }
-    total_time = 0;
     let mut ssa_tup = Vec::<(i32, i32)>::new();
-    for i in 0..ssa_time.len() {
-        total_time += ssa_time[i];
-        ssa_tup.push((i as i32, total_time / 1000));
-    }
-    total_time = 0;
     let mut uf50_tup = Vec::<(i32, i32)>::new();
-    for i in 0..uf50_time.len() {
-        total_time += uf50_time[i];
-        uf50_tup.push((i as i32, total_time / 1000));
-    }
-    total_time = 0;
     let mut hole_tup = Vec::<(i32, i32)>::new();
-    for i in 0..hole_time.len() {
-        total_time += hole_time[i];
-        hole_tup.push((i as i32, total_time / 1000));
-    }
-    total_time = 0;
     let mut pret_tup = Vec::<(i32, i32)>::new();
-    for i in 0..pret_time.len() {
-        total_time += pret_time[i];
-        pret_tup.push((i as i32, total_time / 1000));
-    }
+    sum_time(aim_time, &mut aim_tup);
+    sum_time(ii_time, &mut ii_tup);
+    sum_time(par_time, &mut par_tup);
+    sum_time(ssa_time, &mut ssa_tup);
+    sum_time(uf50_time, &mut uf50_tup);
+    sum_time(hole_time, &mut hole_tup);
+    sum_time(pret_time, &mut pret_tup);
     //println!("{:?}", aim_tup);
     //println!("{:?}", ii_tup);
     //println!("{:?}", par_tup);
@@ -259,7 +237,8 @@ fn benchmark(heuristic: usize) {
     //println!("{:?}", uf50_tup);
     //println!("{:?}", hole_tup);
     //println!("{:?}", pret_tup);
-    ploter(
+
+    plot(
         aim_tup,
         ii_tup,
         par_tup,
@@ -271,13 +250,90 @@ fn benchmark(heuristic: usize) {
         solved_count,
         timeout_count,
     );
+
     println!(
         "solved problems: {}  timeout: {}",
         solved_count, timeout_count
     );
 }
 
-fn ploter(
+fn compare_heuristics() {
+    let mut dlis_time = Vec::<i32>::new();
+    let mut dlcs_time = Vec::<i32>::new();
+    let mut moms_time = Vec::<i32>::new();
+    let mut jw_time = Vec::<i32>::new();
+    let mut boehm_time = Vec::<i32>::new();
+    get_time(&mut dlis_time, 0);
+    get_time(&mut dlcs_time, 1);
+    get_time(&mut moms_time, 2);
+    get_time(&mut jw_time, 3);
+    get_time(&mut boehm_time, 4);
+    dlis_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    dlcs_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    moms_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    jw_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    boehm_time.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let mut dlis_tup = Vec::<(i32, i32)>::new();
+    let mut dlcs_tup = Vec::<(i32, i32)>::new();
+    let mut moms_tup = Vec::<(i32, i32)>::new();
+    let mut jw_tup = Vec::<(i32, i32)>::new();
+    let mut boehm_tup = Vec::<(i32, i32)>::new();
+    sum_time(dlis_time, &mut dlis_tup);
+    sum_time(dlcs_time, &mut dlcs_tup);
+    sum_time(moms_time, &mut moms_tup);
+    sum_time(jw_time, &mut jw_tup);
+    sum_time(boehm_time, &mut boehm_tup);
+
+    // println!("{:?}", dlis_tup);
+    // println!("{:?}", dlcs_tup);
+    // println!("{:?}", moms_tup);
+    // println!("{:?}", jw_tup);
+    // println!("{:?}", boehm_tup);
+
+    plot_compare(
+        dlis_tup,
+        dlcs_tup,
+        moms_tup,
+        jw_tup,
+        boehm_tup,
+    );
+}
+
+fn get_time(vec: &mut Vec<i32>, heuristic: usize) {
+    let mut paths = std::fs::read_dir("inputs/sat").unwrap();
+    for path in paths {
+        let path_str = &format!("{}", path.unwrap().path().display());
+        if path_str.ends_with(".cnf") {
+            println!("{}", path_str);
+            let sol = solve(path_str, heuristic);
+            if sol.0 {
+                vec.push(sol.1 as i32);
+            }
+        }
+    }
+    paths = std::fs::read_dir("inputs/unsat").unwrap();
+    for path in paths {
+        let path_str = &format!("{}", path.unwrap().path().display());
+        if path_str.ends_with(".cnf") {
+            println!("{}", path_str);
+            let sol = solve(path_str, heuristic);
+            if sol.0 {
+                vec.push(sol.1 as i32);
+            }
+        }
+    }
+}
+
+fn sum_time(time_vec: Vec<i32>, tup_vec: &mut Vec<(i32, i32)>) {
+    let mut total_time = 0;
+    for i in 0..time_vec.len() {
+        total_time += time_vec[i];
+        tup_vec.push((i as i32, total_time / 1000));
+    }
+}
+
+fn plot(
     aim: Vec<(i32, i32)>,
     ii: Vec<(i32, i32)>,
     par: Vec<(i32, i32)>,
@@ -368,3 +424,71 @@ fn ploter(
         .draw()
         .unwrap();
 }
+
+fn plot_compare(
+    dlis: Vec<(i32, i32)>,
+    dlcs: Vec<(i32, i32)>,
+    moms: Vec<(i32, i32)>,
+    jw: Vec<(i32, i32)>,
+    boehm: Vec<(i32, i32)>
+) {
+    let root_area = BitMapBackend::new("compare.png", (800, 500)).into_drawing_area();
+    root_area.fill(&WHITE).unwrap();
+
+    let mut ctx = ChartBuilder::on(&root_area)
+        .caption(
+            "Compare heuristics",
+            ("sans-serif", 30),
+        )
+        .margin(10)
+        .x_label_area_size(30)
+        .y_label_area_size(40)
+        .build_cartesian_2d(0..400, 0..150000)
+        .unwrap();
+
+    ctx.configure_mesh().draw().unwrap();
+
+    ctx.draw_series(
+        dlis.iter()
+            .map(|point| TriangleMarker::new(*point, 5, &BLUE)),
+    )
+    .unwrap()
+    .label("DLIS")
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+    ctx.draw_series(dlcs.iter().map(|point| TriangleMarker::new(*point, 5, &RED)))
+        .unwrap()
+        .label("DLCS")
+        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+
+    ctx.draw_series(
+        moms.iter()
+            .map(|point| TriangleMarker::new(*point, 5, &GREEN)),
+    )
+    .unwrap()
+    .label("MOM")
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &GREEN));
+
+    ctx.draw_series(
+        jw.iter()
+            .map(|point| TriangleMarker::new(*point, 5, &BLACK)),
+    )
+    .unwrap()
+    .label("Jeroslaw-Wang")
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLACK));
+
+    ctx.draw_series(
+        boehm.iter()
+            .map(|point| TriangleMarker::new(*point, 5, &CYAN)),
+    )
+    .unwrap()
+    .label("Böhm")
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &CYAN));
+
+    ctx.configure_series_labels()
+        .background_style(&WHITE.mix(0.8))
+        .border_style(&BLACK)
+        .draw()
+        .unwrap();
+}
+
