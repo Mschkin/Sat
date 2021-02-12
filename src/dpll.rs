@@ -543,23 +543,24 @@ impl DPLL {
             if self.unsat || self.solved {
                 return;
             }
+
+            // select heuristic
+            if self.heuristic > 1 {
+                self.update_occ_len();
+            }
+            let next_choice: (usize, bool);
+            if self.heuristic == 0 {
+                next_choice = self.dlis();
+            } else if self.heuristic == 1 {
+                next_choice = self.dlcs();
+            } else if self.heuristic == 2 {
+                next_choice = self.jw();
+            } else if self.heuristic == 3 {
+                next_choice = self.moms();
+            } else {
+                next_choice = self.boehm();
+            }
             if !self.solved {
-                // select heuristic
-                if self.heuristic > 1 {
-                    self.update_occ_len();
-                }
-                let next_choice: (usize, bool);
-                if self.heuristic == 0 {
-                    next_choice = self.dlis();
-                } else if self.heuristic == 1 {
-                    next_choice = self.dlcs();
-                } else if self.heuristic == 2 {
-                    next_choice = self.jw();
-                } else if self.heuristic == 3 {
-                    next_choice = self.moms();
-                } else {
-                    next_choice = self.boehm();
-                }
                 self.set_value(next_choice.0, next_choice.1, false);
             }
         }

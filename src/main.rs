@@ -6,17 +6,16 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
         compare_heuristics();
-    }else if args.len() == 2{
+    } else if args.len() == 2 {
         benchmark(args[1].parse::<usize>().unwrap());
-    }else{
-        if args[1].ends_with(".cnf"){
-            solve(args[1], args[2].parse::<usize>().unwrap());
-        }else{ // folder
-            solve_all(args[1], args[2].parse::<usize>().unwrap());
+    } else {
+        if args[1].ends_with(".cnf") {
+            solve(&args[1], args[2].parse::<usize>().unwrap());
+        } else {
+            // folder
+            solve_all(&args[1], args[2].parse::<usize>().unwrap());
         }
     }
-    //solve("inputs/test/unsat/nop2.cnf", args[1].parse::<usize>().unwrap());
-    //solve_all("inputs/test/sat", args[1].parse::<usize>().unwrap());  
 }
 
 fn solve(path: &str, heuristic: usize) -> (bool, u128) {
@@ -285,19 +284,13 @@ fn compare_heuristics() {
     sum_time(jw_time, &mut jw_tup);
     sum_time(boehm_time, &mut boehm_tup);
 
-    // println!("{:?}", dlis_tup);
-    // println!("{:?}", dlcs_tup);
-    // println!("{:?}", moms_tup);
-    // println!("{:?}", jw_tup);
-    // println!("{:?}", boehm_tup);
+    //println!("{:?}", dlis_tup);
+    //println!("{:?}", dlcs_tup);
+    //println!("{:?}", moms_tup);
+    //println!("{:?}", jw_tup);
+    //println!("{:?}", boehm_tup);
 
-    plot_compare(
-        dlis_tup,
-        dlcs_tup,
-        moms_tup,
-        jw_tup,
-        boehm_tup,
-    );
+    plot_compare(dlis_tup, dlcs_tup, moms_tup, jw_tup, boehm_tup);
 }
 
 fn get_time(vec: &mut Vec<i32>, heuristic: usize) {
@@ -430,20 +423,17 @@ fn plot_compare(
     dlcs: Vec<(i32, i32)>,
     moms: Vec<(i32, i32)>,
     jw: Vec<(i32, i32)>,
-    boehm: Vec<(i32, i32)>
+    boehm: Vec<(i32, i32)>,
 ) {
     let root_area = BitMapBackend::new("compare.png", (800, 500)).into_drawing_area();
     root_area.fill(&WHITE).unwrap();
 
     let mut ctx = ChartBuilder::on(&root_area)
-        .caption(
-            "Compare heuristics",
-            ("sans-serif", 30),
-        )
+        .caption("Compare heuristics", ("sans-serif", 30))
         .margin(10)
         .x_label_area_size(30)
         .y_label_area_size(40)
-        .build_cartesian_2d(0..400, 0..150000)
+        .build_cartesian_2d(0..200, 0..150000)
         .unwrap();
 
     ctx.configure_mesh().draw().unwrap();
@@ -456,10 +446,13 @@ fn plot_compare(
     .label("DLIS")
     .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
 
-    ctx.draw_series(dlcs.iter().map(|point| TriangleMarker::new(*point, 5, &RED)))
-        .unwrap()
-        .label("DLCS")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+    ctx.draw_series(
+        dlcs.iter()
+            .map(|point| TriangleMarker::new(*point, 5, &RED)),
+    )
+    .unwrap()
+    .label("DLCS")
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
 
     ctx.draw_series(
         moms.iter()
@@ -478,12 +471,13 @@ fn plot_compare(
     .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLACK));
 
     ctx.draw_series(
-        boehm.iter()
-            .map(|point| TriangleMarker::new(*point, 5, &CYAN)),
+        boehm
+            .iter()
+            .map(|point| TriangleMarker::new(*point, 5, &MAGENTA)),
     )
     .unwrap()
     .label("Böhm")
-    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &CYAN));
+    .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &MAGENTA));
 
     ctx.configure_series_labels()
         .background_style(&WHITE.mix(0.8))
@@ -491,4 +485,3 @@ fn plot_compare(
         .draw()
         .unwrap();
 }
-
