@@ -15,6 +15,11 @@ pub struct Variable {
 }
 
 pub fn cdcl(path: &str) {
+    test_set_value1();
+    test_set_value2();
+    test_set_value3();
+    test_set_value4();
+    test_set_value5();
     let mut clauses = Vec::<Clause>::new();
     let mut variables = Vec::<Variable>::new();
     let mut queue = Vec::<(usize, bool, bool, usize)>::new(); // var_index,var_val,forced,clause_index(reason)
@@ -202,7 +207,6 @@ fn preprocessing(
 }
 
 fn double_unwatch(clauses: &Vec<Clause>, mut variables: &mut Vec<Variable>, clause_index: usize) {
-    println!("{:?}",clauses[clause_index]);
     let watched0_index = clauses[clause_index]
         .variables
         .iter()
@@ -351,15 +355,15 @@ fn resolve_conflict(
     mut clauses: &mut Vec<Clause>,
     mut variables: &mut Vec<Variable>,
     queue: &mut Vec<(usize, bool, bool, usize)>,
-    backtracking_stack: &mut Vec<(usize, usize, bool, usize)>,
+    mut backtracking_stack: &mut Vec<(usize, usize, bool, usize)>,
     mut deleted_clauses: &mut Vec<usize>,
     cur_depth: &mut usize,
     clause_index: usize,
 ) -> bool {
-    // print_clauses(&clauses, &deleted_clauses, &variables);
-    // print_variables(&variables);
+    print_clauses(&clauses, &deleted_clauses, &variables);
+    print_variables(&variables);
     // println!("Queue: {:?}", queue);
-    // println!("Backtracking stack: {:?} {}", backtracking_stack,backtracking_stack.len());
+    println!("Backtracking stack: {:?} {}", backtracking_stack,backtracking_stack.len());
     // println!("Deleted clauses: {:?}", deleted_clauses);
     if backtracking_stack[backtracking_stack.len() - 1].1 == 1 {
         let first_var = backtracking_stack[0].0;
@@ -397,20 +401,9 @@ fn resolve_conflict(
         max_depth_var.pop();
         variables[var_index].value = 2;
     }
-    let uip_index = backtracking_stack.pop().unwrap().0;
-    let new_uip_value = variables[uip_index].value == 0;
-    variables[uip_index].value = 2; // set the uip free
-    while !resolvent
-        .variables
-        .contains(&backtracking_stack[backtracking_stack.len() - 1].0)
-    {
-        // non-chronological backtracking
-        variables[backtracking_stack.pop().unwrap().0].value = 2;
-    }
-    resolvent.watched[0] = uip_index;
-    resolvent.watched[1] = backtracking_stack[backtracking_stack.len() - 1].0;
-
+    let (uip_index,new_uip_value)=non_chronological_backtracking(&mut variables,resolvent,&mut backtracking_stack);
     let new_clause_index = clause_learning(&mut clauses, &mut deleted_clauses, resolvent);
+    println!("new learned clause: {:?}",resolvent);
     if new_uip_value {
         // uip must be true with unit prop, so sign = value
         variables[uip_index].pos_watched_occ.push(new_clause_index);
@@ -465,6 +458,28 @@ fn get_resolvent(clause1: &Clause, clause2: &Clause, var_index: usize) -> Clause
         }
     }
     resolvent
+}
+
+fn non_chronological_backtracking(variables:&mut Vec<Variable>,resolvent:&mut Clause,backtracking_stack:&mut Vec<(usize, usize, bool, usize)>)->(usize,bool){
+    println!("{:?}",backtracking_stack);
+    println!("{:?}",resolvent);
+    let uip_index = backtracking_stack.pop().unwrap().0;
+    let new_uip_value = variables[uip_index].value == 0;
+    variables[uip_index].value = 2; // set the uip free
+    let mut i=backtracking_stack.len()-1;
+    while !resolvent
+        .variables
+        .contains(&backtracking_stack[i].0)
+    {
+        i-=1;
+    }
+    let assertion_level=backtracking_stack[i].1;   
+    while backtracking_stack[backtracking_stack.len()-1].1>assertion_level{
+        variables[backtracking_stack.pop().unwrap().0].value = 2;
+    }
+    resolvent.watched[0] = uip_index;
+    resolvent.watched[1] = backtracking_stack[i].0;
+    (uip_index,new_uip_value)
 }
 
 fn clause_learning(
@@ -618,10 +633,10 @@ fn validate(clauses: &Vec<Clause>, variables: &Vec<Variable>) -> bool {
     true
 }
 
-fn check_watched(clauses: &Vec<Clause>, deleted_clauses:&Vec<usize>,variables: &Vec<Variable>) {
+fn check_watched(clauses: &Vec<Clause>, deleted_clauses: &Vec<usize>, variables: &Vec<Variable>) {
     for i in 0..clauses.len() {
-        println!("{} {:?}",i,clauses[i]);
-        if !deleted_clauses.contains(&i){
+        println!("{} {:?}", i, clauses[i]);
+        if !deleted_clauses.contains(&i) {
             for j in 0..2 {
                 if clauses[i].watched[j] != 0 as usize {
                     let watched_index = clauses[i]
@@ -642,4 +657,301 @@ fn check_watched(clauses: &Vec<Clause>, deleted_clauses:&Vec<usize>,variables: &
             }
         }
     }
+}
+
+fn test_set_value1() {
+    let mut cl = Clause {
+        variables: vec![1, 2, 3],
+        signs: vec![true, true, true],
+        watched: [1 as usize, 2 as usize],
+    };
+    let dummy = Variable {
+        value: 2,
+        pos_watched_occ: vec![0],
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var1 = Variable {
+        value: 2,
+        pos_watched_occ: vec![0],
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var2 = Variable {
+        value: 2,
+        pos_watched_occ: vec![0],
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var3 = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let mut variables = vec![dummy, var1, var2, var3];
+    let mut clauses = vec![cl];
+    let mut queue = vec![(1, true, false, 0)];
+    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+    let mut deleted_clauses = Vec::<usize>::new();
+    let mut cur_depth = 1;
+    set_value(
+        &mut clauses,
+        &mut variables,
+        &mut queue,
+        &mut backtracking_stack,
+        &mut deleted_clauses,
+        &mut cur_depth,
+    );
+    assert!(clauses[0].watched == [1, 2]);
+    assert!(variables[1].value == 1);
+    assert!(variables[2].value == 2);
+    assert!(variables[3].value == 2);
+    assert!(variables[1].pos_watched_occ == [0]);
+    assert!(variables[2].pos_watched_occ == [0]);
+}
+
+fn test_set_value2() {
+    let mut cl = Clause {
+        variables: vec![1, 2, 3],
+        signs: vec![false, true, true],
+        watched: [1 as usize, 2 as usize],
+    };
+    let dummy = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var1 = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: vec![0],
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var2 = Variable {
+        value: 2,
+        pos_watched_occ: vec![0],
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var3 = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let mut variables = vec![dummy, var1, var2, var3];
+    let mut clauses = vec![cl];
+    let mut queue = vec![(1, true, false, 0)];
+    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+    let mut deleted_clauses = Vec::<usize>::new();
+    let mut cur_depth = 1;
+    set_value(
+        &mut clauses,
+        &mut variables,
+        &mut queue,
+        &mut backtracking_stack,
+        &mut deleted_clauses,
+        &mut cur_depth,
+    );
+    assert!(clauses[0].watched == [3, 2]);
+    assert!(variables[1].value == 1);
+    assert!(variables[2].value == 2);
+    assert!(variables[3].value == 2);
+    assert!(variables[1].neg_watched_occ == []);
+    assert!(variables[2].pos_watched_occ == [0]);
+    assert!(variables[3].pos_watched_occ == [0]);
+}
+
+fn test_set_value3() {
+    let mut cl = Clause {
+        variables: vec![1, 2],
+        signs: vec![false, true],
+        watched: [1 as usize, 2 as usize],
+    };
+    let dummy = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var1 = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: vec![0],
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var2 = Variable {
+        value: 2,
+        pos_watched_occ: vec![0],
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let mut variables = vec![dummy, var1, var2];
+    let mut clauses = vec![cl];
+    let mut queue = vec![(1, true, false, 0)];
+    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+    let mut deleted_clauses = Vec::<usize>::new();
+    let mut cur_depth = 1;
+    set_value(
+        &mut clauses,
+        &mut variables,
+        &mut queue,
+        &mut backtracking_stack,
+        &mut deleted_clauses,
+        &mut cur_depth,
+    );
+    assert!(clauses[0].watched == [1, 2]);
+    assert!(variables[1].value == 1);
+    assert!(variables[2].value == 2);
+    assert!(variables[1].neg_watched_occ == [0]);
+    assert!(variables[2].pos_watched_occ == [0]);
+    assert!(queue == [(2, true, true, 0)]);
+}
+
+fn test_set_value4() {
+    let mut cl1 = Clause {
+        variables: vec![1, 2],
+        signs: vec![false, true],
+        watched: [1 as usize, 2 as usize],
+    };
+    let mut cl2 = Clause {
+        variables: vec![1, 2],
+        signs: vec![false, false],
+        watched: [1 as usize, 2 as usize],
+    };
+    let dummy = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var1 = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: vec![0,1],
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var2 = Variable {
+        value: 2,
+        pos_watched_occ: vec![0],
+        neg_watched_occ: vec![1],
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let mut variables = vec![dummy, var1, var2];
+    let mut clauses = vec![cl1,cl2];
+    let mut queue = vec![(1, true, false, 0)];
+    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+    let mut deleted_clauses = Vec::<usize>::new();
+    let mut cur_depth = 1;
+    set_value(
+        &mut clauses,
+        &mut variables,
+        &mut queue,
+        &mut backtracking_stack,
+        &mut deleted_clauses,
+        &mut cur_depth,
+    );
+    set_value(
+        &mut clauses,
+        &mut variables,
+        &mut queue,
+        &mut backtracking_stack,
+        &mut deleted_clauses,
+        &mut cur_depth,
+    );
+    assert!(clauses[0].watched == [1, 2]);
+    assert!(variables[1].value == 0);
+    assert!(variables[2].value == 2);
+    assert!(variables[1].neg_watched_occ == []);
+    assert!(variables[1].pos_watched_occ == []);
+    assert!(variables[2].neg_watched_occ == []);
+    assert!(variables[2].pos_watched_occ == []);
+    assert!(clauses[2].variables == [1]);
+    assert!(clauses[2].signs == [false]);
+    assert!(deleted_clauses == [0,1,2]);
+}
+
+fn test_set_value5() {
+    let mut cl1 = Clause {
+        variables: vec![1],
+        signs: vec![false],
+        watched: [0 as usize, 0 as usize],
+    };
+    let mut cl2 = Clause {
+        variables: vec![1, 2],
+        signs: vec![true, false],
+        watched: [1 as usize, 2 as usize],
+    };
+    let mut cl3 = Clause {
+        variables: vec![1, 2,3],
+        signs: vec![true, true,true],
+        watched: [1 as usize, 2 as usize],
+    };
+    let mut cl4 = Clause {
+        variables: vec![1, 2,3],
+        signs: vec![true, true,false],
+        watched: [1 as usize, 2 as usize],
+    };
+    let dummy = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var1 = Variable {
+        value: 2,
+        pos_watched_occ: vec![1,2,3],
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var2 = Variable {
+        value: 2,
+        pos_watched_occ: vec![2,3],
+        neg_watched_occ: vec![1],
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let var3 = Variable {
+        value: 2,
+        pos_watched_occ: Vec::<usize>::new(),
+        neg_watched_occ: Vec::<usize>::new(),
+        priority: [0, 0],
+        r: [0, 0],
+    };
+    let mut variables = vec![dummy, var1, var2,var3];
+    let mut clauses = vec![cl1,cl2,cl3,cl4];
+    let mut queue = vec![(1, true, false, 0)];
+    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+    let mut deleted_clauses = Vec::<usize>::new();
+    let mut cur_depth = 1;
+    let res=preprocessing(&mut clauses, &mut deleted_clauses, &mut variables);
+    assert!(variables[1].value == 0);
+    assert!(variables[2].value == 0);
+    assert!(variables[3].value == 1);
+    assert!(variables[1].neg_watched_occ == []);
+    assert!(variables[1].pos_watched_occ == []);
+    assert!(variables[2].neg_watched_occ == []);
+    assert!(variables[2].pos_watched_occ == []);
+    assert!(variables[3].neg_watched_occ == []);
+    assert!(variables[3].pos_watched_occ == []);
+    assert!(deleted_clauses == [0,1,2]);
+    assert!(res==false);
 }
