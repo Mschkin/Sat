@@ -15,10 +15,10 @@ pub struct Variable {
 }
 
 pub fn cdcl(path: &str) {
-    test_set_value1();
-    test_set_value2();
-    test_set_value3();
-    test_set_value4();
+    // test_set_value1();
+    // test_set_value2();
+    // test_set_value3();
+    // test_set_value4();
     test_set_value5();
     let mut clauses = Vec::<Clause>::new();
     let mut variables = Vec::<Variable>::new();
@@ -27,6 +27,8 @@ pub fn cdcl(path: &str) {
     let mut cur_depth = 0;
     let mut deleted_clauses = Vec::<usize>::new();
     init(path, &mut clauses, &mut variables);
+    // print_clauses(&clauses, &deleted_clauses, &variables);
+    // print_variables(&variables);
     let mut unsat = !preprocessing(&mut clauses, &mut deleted_clauses, &mut variables);
     while !unsat {
         let (next_variable, next_value) = vsids(&variables, &mut cur_depth);
@@ -72,7 +74,7 @@ fn read_file(path: &str) -> String {
     contents
 }
 
-fn init(path: &str, clauses: &mut Vec<Clause>, variables: &mut Vec<Variable>) {
+fn init(path: &str, clauses: &mut Vec<Clause>, mut variables: &mut Vec<Variable>) {
     let dummy_var = Variable {
         value: 2,
         pos_watched_occ: Vec::<usize>::new(),
@@ -88,7 +90,7 @@ fn init(path: &str, clauses: &mut Vec<Clause>, variables: &mut Vec<Variable>) {
     let mut lits = Vec::<i32>::new();
     for line_number in 0..input.len() {
         let line_elem: Vec<&str> = input[line_number].split_whitespace().collect();
-        if line_elem.len() > 0 && line_elem[0] != "c" && line_elem[0] != "0" {
+        if line_elem.len() > 0 && line_elem[0] != "c" {
             if line_elem[0] == "p" {
                 variables_qty = line_elem[2].parse::<usize>().unwrap();
                 for _i in 0..variables_qty {
@@ -143,6 +145,16 @@ fn init(path: &str, clauses: &mut Vec<Clause>, variables: &mut Vec<Variable>) {
             }
         }
         clauses.push(clause);
+        if clauses[clauses.len()-1].variables.len()==1{
+            let cl_index=clauses.len()-1;
+            unwatch(
+                &mut variables,
+                cl_index,
+                clauses[cl_index].watched[0],
+                clauses[cl_index].signs[0],
+            );
+            clauses[cl_index].watched[0]=0;
+        }
     }
 }
 
@@ -151,7 +163,7 @@ fn preprocessing(
     deleted_clauses: &mut Vec<usize>,
     mut variables: &mut Vec<Variable>,
 ) -> bool {
-    println!("Preprocessing");
+    //println!("Preprocessing");
     let mut i = 0;
     while i < clauses.len() {
         if clauses[i].variables.len() == 1 && !deleted_clauses.contains(&i) {
@@ -167,6 +179,10 @@ fn preprocessing(
                             if clauses[j].variables.len() > 1 {
                                 double_unwatch(&clauses, &mut variables, j);
                             }
+                            println!("172");
+                            print_clauses(&clauses, &deleted_clauses, &variables);
+                            print_variables(&variables);
+                            check_watched(&clauses, &deleted_clauses,&variables);
                         } else {
                             // remove var from clause
                             if clauses[j].variables.len() == 1 {
@@ -186,11 +202,15 @@ fn preprocessing(
                                     variables[clauses[j].watched[0]].pos_watched_occ.push(j);
                                 } else {
                                     variables[clauses[j].watched[0]].neg_watched_occ.push(j);
+                                    println!("191");
+                                    check_uniqueness(&mut variables[clauses[j].watched[0]].neg_watched_occ);
                                 }
                                 if clauses[j].signs[1] {
                                     variables[clauses[j].watched[1]].pos_watched_occ.push(j);
                                 } else {
                                     variables[clauses[j].watched[1]].neg_watched_occ.push(j);
+                                    println!("198");
+                                    check_uniqueness(&mut variables[clauses[j].watched[1]].neg_watched_occ);
                                 }
                             }
                         }
@@ -271,7 +291,15 @@ fn set_value(
             range = variables[variable_index].pos_watched_occ.len()
         }
         let mut i = 0;
+        if variable_index==925{
+            println!("new loop");
+        }
         while i < range {
+            if variable_index==925 {       
+            println!("variable index: {}",variable_index);
+            println!("neg watched: {:?}",variables[variable_index].neg_watched_occ);
+            //check_watched(&clauses, &deleted_clauses,&variables);
+        }
             let clause_index: usize;
             if value {
                 clause_index = variables[variable_index].neg_watched_occ[i];
@@ -303,7 +331,7 @@ fn set_value(
             }
             if !sat {
                 if conflict {
-                    println!("Conflict 1!");
+                    //println!("Conflict 1!");
                     return resolve_conflict(
                         &mut clauses,
                         &mut variables,
@@ -325,6 +353,8 @@ fn set_value(
                             variables[new_watched].pos_watched_occ.push(clause_index);
                         } else {
                             variables[new_watched].neg_watched_occ.push(clause_index);
+                            println!("342");
+                            check_uniqueness(&mut variables[new_watched].neg_watched_occ);
                         }
                         unwatch(&mut variables, clause_index, variable_index, !value);
                         range -= 1;
@@ -360,11 +390,12 @@ fn resolve_conflict(
     cur_depth: &mut usize,
     clause_index: usize,
 ) -> bool {
-    print_clauses(&clauses, &deleted_clauses, &variables);
-    print_variables(&variables);
+    // print_clauses(&clauses, &deleted_clauses, &variables);
+    // print_variables(&variables);
     // println!("Queue: {:?}", queue);
-    println!("Backtracking stack: {:?} {}", backtracking_stack,backtracking_stack.len());
+    // println!("Backtracking stack: {:?} {}", backtracking_stack,backtracking_stack.len());
     // println!("Deleted clauses: {:?}", deleted_clauses);
+    queue.clear();
     if backtracking_stack[backtracking_stack.len() - 1].1 == 1 {
         let first_var = backtracking_stack[0].0;
         let unit_clause = Clause {
@@ -401,14 +432,25 @@ fn resolve_conflict(
         max_depth_var.pop();
         variables[var_index].value = 2;
     }
+    if resolvent.variables.len()==1{
+        resolvent.signs=vec![variables[resolvent.variables[0]].value == 0];
+        clause_learning(&mut clauses, &mut deleted_clauses, &resolvent);
+        while backtracking_stack.len() > 0 {
+            variables[backtracking_stack.pop().unwrap().0].value = 2;
+        }
+        *cur_depth = 0 as usize;
+        return preprocessing(&mut clauses, &mut deleted_clauses, &mut variables);
+    }
     let (uip_index,new_uip_value)=non_chronological_backtracking(&mut variables,resolvent,&mut backtracking_stack);
     let new_clause_index = clause_learning(&mut clauses, &mut deleted_clauses, resolvent);
-    println!("new learned clause: {:?}",resolvent);
+    //println!("new learned clause: {:?}",resolvent);
     if new_uip_value {
         // uip must be true with unit prop, so sign = value
         variables[uip_index].pos_watched_occ.push(new_clause_index);
     } else {
         variables[uip_index].neg_watched_occ.push(new_clause_index);
+        println!("438");
+        check_uniqueness(&mut variables[uip_index].neg_watched_occ);
     }
     if variables[clauses[new_clause_index].watched[1]].value == 0 {
         // because all literals except uip in the clause are false, the sign = !value
@@ -419,10 +461,11 @@ fn resolve_conflict(
         variables[clauses[new_clause_index].watched[1]]
             .neg_watched_occ
             .push(new_clause_index);
+        println!("450");
+        check_uniqueness(&mut variables[clauses[new_clause_index].watched[1]].neg_watched_occ);
     }
     update_r(&clauses, &mut variables, new_clause_index);
     *cur_depth = backtracking_stack[backtracking_stack.len() - 1].1;
-    queue.clear();
     queue.push((uip_index, new_uip_value, true, new_clause_index));
     return true;
 }
@@ -461,8 +504,8 @@ fn get_resolvent(clause1: &Clause, clause2: &Clause, var_index: usize) -> Clause
 }
 
 fn non_chronological_backtracking(variables:&mut Vec<Variable>,resolvent:&mut Clause,backtracking_stack:&mut Vec<(usize, usize, bool, usize)>)->(usize,bool){
-    println!("{:?}",backtracking_stack);
-    println!("{:?}",resolvent);
+    //println!("{:?}",backtracking_stack);
+    //println!("{:?}",resolvent);
     let uip_index = backtracking_stack.pop().unwrap().0;
     let new_uip_value = variables[uip_index].value == 0;
     variables[uip_index].value = 2; // set the uip free
@@ -534,7 +577,7 @@ fn unwatch(variables: &mut Vec<Variable>, clause_index: usize, variable_index: u
             .neg_watched_occ
             .retain(|x| *x != clause_index);
     }
-    println!("{} unwatched for {}", clause_index, variable_index);
+    //println!("{} unwatched for {}", clause_index, variable_index);
 }
 
 fn vsids(variables: &Vec<Variable>, cur_depth: &mut usize) -> (usize, bool) {
@@ -635,7 +678,6 @@ fn validate(clauses: &Vec<Clause>, variables: &Vec<Variable>) -> bool {
 
 fn check_watched(clauses: &Vec<Clause>, deleted_clauses: &Vec<usize>, variables: &Vec<Variable>) {
     for i in 0..clauses.len() {
-        println!("{} {:?}", i, clauses[i]);
         if !deleted_clauses.contains(&i) {
             for j in 0..2 {
                 if clauses[i].watched[j] != 0 as usize {
@@ -656,6 +698,23 @@ fn check_watched(clauses: &Vec<Clause>, deleted_clauses: &Vec<usize>, variables:
                 }
             }
         }
+    }
+    for i in 1..variables.len(){
+        for j in &variables[i].pos_watched_occ{
+            assert!(clauses[*j].watched.contains(&i));
+            assert!(!deleted_clauses.contains(j));
+        }
+        for j in &variables[i].neg_watched_occ{
+            assert!(clauses[*j].watched.contains(&i));
+            assert!(!deleted_clauses.contains(j));
+        }
+    }
+}
+
+fn check_uniqueness(vec:&mut Vec<usize>){
+    vec.sort();
+    for i in 0..vec.len()-1{
+        assert!(vec[i+1]!=vec[i]);
     }
 }
 
