@@ -32,12 +32,21 @@ pub fn cdcl(path: &str) {
     let mut phases = vec![2; variables.len()];
     // print_clauses(&clauses, &deleted_clauses, &variables);
     // print_variables(&variables);
-    let mut unsat = !preprocessing(
+    let mut replacement_rules = Vec::<(usize, usize, bool)>::new();
+    let mut unsat = !preprocessing2(
         &mut clauses,
         &mut deleted_clauses,
         &mut variables,
-        &mut priority_queue,
+        &mut replacement_rules,
     );
+    if !unsat {
+        unsat = !preprocessing(
+            &mut clauses,
+            &mut deleted_clauses,
+            &mut variables,
+            &mut priority_queue,
+        );
+    }
     if !unsat {
         set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
     }
@@ -267,33 +276,9 @@ fn preprocessing(
                                 }
                             } else {
                                 // remove var from clause
-                                if clauses[j].variables.len() == 1 {
-                                    // unsat
+                                if !delete_variable(&mut clauses, &mut variables, j, var_index) {
                                     return false;
-                                } else if clauses[j].variables.len() == 2 {
-                                    double_unwatch(&clauses, &mut variables, j);
-                                } else {
-                                    if clauses[j].watched.contains(&var_index) {
-                                        let mut new_watch = 0;
-                                        for v in &clauses[j].variables {
-                                            if !clauses[j].watched.contains(v)
-                                                && variables[*v].value == 2
-                                            {
-                                                new_watch = *v;
-                                                break;
-                                            }
-                                        }
-                                        switch_watch(
-                                            &mut clauses,
-                                            &mut variables,
-                                            j,
-                                            var_index,
-                                            new_watch,
-                                        );
-                                    }
                                 }
-                                clauses[j].variables.remove(x);
-                                clauses[j].signs.remove(x);
                             }
                         }
                         None => {}
@@ -309,6 +294,279 @@ fn preprocessing(
     // print_variables(&variables);
     // check_watched(&clauses, &deleted_clauses, &variables);
     return true;
+}
+
+fn delete_variable(
+    mut clauses: &mut Vec<Clause>,
+    mut variables: &mut Vec<Variable>,
+    j: usize,
+    var_index: usize,
+) -> bool {
+    if clauses[j].variables.len() == 1 {
+        // unsat
+        return false;
+    } else if clauses[j].variables.len() == 2 {
+        double_unwatch(&clauses, &mut variables, j);
+    } else {
+        if clauses[j].watched.contains(&var_index) {
+            let mut new_watch = 0;
+            for v in &clauses[j].variables {
+                if !clauses[j].watched.contains(v) && variables[*v].value == 2 {
+                    new_watch = *v;
+                    break;
+                }
+            }
+            switch_watch(&mut clauses, &mut variables, j, var_index, new_watch);
+        }
+    }
+    let pos=clauses[j].variables.iter().position(|x| *x == var_index).unwrap();
+    clauses[j].variables.remove(pos);
+    clauses[j].signs.remove(pos);
+    true
+}
+
+fn get_literals(clause: &Clause) -> Vec<i32> {
+    let mut lits = Vec::<i32>::new();
+    for i in 0..clause.variables.len() {
+        if clause.signs[i] {
+            lits.push(clause.variables[i]as i32);
+        } else {
+            lits.push(-(clause.variables[i] as i32));
+        }
+    }
+    lits
+}
+
+fn subsumption(vec1: &Vec<i32>, vec2: &Vec<i32>) -> usize {
+    let short:&Vec<i32>;
+    let long:&Vec<i32>;
+    if vec1.len() <= vec2.len() {
+        short = vec1;
+        long = vec2;
+    } else {
+        short = vec2;
+        long = vec1;
+    }
+    let mut contains = true;
+    for k in 0..short.len() {
+        if !long.contains(&short[k]) {
+            contains = false;
+            break;
+        }
+    }
+    if !contains {
+        0
+    } else if short == vec1 {
+        1
+    } else {
+        2
+    }
+}
+
+fn resolvent_candidates(vec1: Vec<i32>, vec2: Vec<i32>) -> (i32, usize) {
+    for k in 0..vec1.len() {
+        if vec2.contains(&-vec1[k]) {
+            let sub = subsumption(
+                vec1.retain(|x| *x != vec1[k]),
+                vec2.retain(|x| *x != -vec1[k]),
+            );
+            if sub == 1 && vec1.len() == vec2.len() {
+                return (vec1[k], 0);
+            } else if sub == 1 {
+                return (-vec1[k], 1);
+            } else if sub == 2 {
+                return (vec1[k], 2);
+            }
+        }
+    }
+    return (0, 3);
+}
+
+fn preprocessing2(
+    mut clauses: &mut Vec<Clause>,
+    mut deleted_clauses: &mut Vec<usize>,
+    mut variables: &mut Vec<Variable>,
+    replacement_rules: &mut Vec<(usize, usize, bool)>,
+) -> bool {
+    let mut combi_mat = vec![vec![false; clauses.len()]; clauses.len()];
+    for i in 0..clauses.len() {
+        combi_mat[i][i] = true;
+        for j in i + 1..clauses.len() {
+            if deleted_clauses.contains(&i) || deleted_clauses.contains(&j) {
+                combi_mat[i][j] = true;
+            }
+        }
+    }
+    let mut i = 0;
+    let mut j = 1;
+    while i < clauses.len() {
+        j = i + 1;
+        while j < clauses.len() {
+            if !combi_mat[i][j] {
+                let lit1 = get_literals(&clauses[i]);
+                let lit2 = get_literals(&clauses[j]);
+                let sub = subsumption(&lit1, &lit2);
+                if sub == 1 {
+                    deleted_clauses.push(j);
+                    double_unwatch(&clauses, &mut variables, j);
+                    mark_deleted(&mut combi_mat, j);
+                } else if sub == 2 {
+                    deleted_clauses.push(i);
+                    double_unwatch(&clauses, &mut variables, i);
+                    mark_deleted(&mut combi_mat, i);
+                }
+                let resolve = resolvent_candidates(lit1, lit2);
+                if resolve.1 == 0 {
+                    deleted_clauses.push(j);
+                    double_unwatch(&clauses, &mut variables, j);
+                    if !delete_variable(
+                        &mut clauses,
+                        &mut variables,
+                        i,
+                        clauses[i]
+                            .variables
+                            .iter()
+                            .position(|&x| x == resolve.0.abs()as usize)
+                            .unwrap(),
+                    ) {
+                        return false;
+                    }
+                    mark_unseen(&mut combi_mat, i, &deleted_clauses);
+                    mark_deleted(&mut combi_mat, j);
+                    i = 0;
+                    break;
+                } else if resolve.1 == 1 {
+                    if !delete_variable(
+                        &mut clauses,
+                        &mut variables,
+                        j,
+                        clauses[j]
+                            .variables
+                            .iter()
+                            .position(|&x| x == resolve.0.abs() as usize)
+                            .unwrap(),
+                    ) {
+                        return false;
+                    }
+                    mark_unseen(&mut combi_mat, j, &deleted_clauses);
+                    i = 0;
+                    break;
+                } else if resolve.1 == 2 {
+                    if !delete_variable(
+                        &mut clauses,
+                        &mut variables,
+                        i,
+                        clauses[i]
+                            .variables
+                            .iter()
+                            .position(|&x| x == resolve.0.abs() as usize)
+                            .unwrap(),
+                    ) {
+                        return false;
+                    }
+                    mark_unseen(&mut combi_mat, i, &deleted_clauses);
+                    i = 0;
+                    break;
+                }
+                if lit1.len() == 2 && lit2.len() == 2 {
+                    if lit2.contains(&-lit1[0]) && lit2.contains(&-lit1[1]) {
+                        replace_variable(
+                            &mut clauses,
+                            &mut variables,
+                            &mut deleted_clauses,
+                            lit1[0].abs() as usize,
+                            lit1[1].abs() as usize,
+                            lit1[0] * lit1[1] < 0,
+                            &mut combi_mat,
+                        );
+                        replacement_rules.push((
+                            lit1[0].abs() as usize,
+                            lit1[1].abs() as usize,
+                            lit1[0] * lit1[1] < 0,
+                        ));
+                        i = 0;
+                        break;
+                    }
+                }
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+
+    return true;
+}
+
+fn replace_variable(
+    mut clauses: &mut Vec<Clause>,
+    mut variables:&mut Vec<Variable>,
+    deleted_clauses: &mut Vec<usize>,
+    old: usize,
+    new: usize,
+    sign_keeping: bool,
+    combi_mat: &mut Vec<Vec<bool>>,
+) {
+    for i in 0..clauses.len() {
+        if !deleted_clauses.contains(&i) {
+            if clauses[i].variables.contains(&old) {
+                if clauses[i].variables.contains(&new) {
+                    let old_index = clauses[i].variables.iter().position(|&x| x == old).unwrap();
+                    let new_index = clauses[i].variables.iter().position(|&x| x == new).unwrap();
+                    if sign_keeping {
+                        if clauses[i].signs[old_index] == clauses[i].signs[new_index] {
+                            delete_variable(&mut clauses, &mut variables, i, old);
+                            mark_unseen(&mut combi_mat, i, deleted_clauses);
+                        } else {
+                            deleted_clauses.push(i);
+                            double_unwatch(&clauses, &mut variables, i);
+                            mark_deleted(&mut combi_mat, i)
+                        }
+                    } else {
+                        if clauses[i].signs[old_index] != clauses[i].signs[new_index] {
+                            delete_variable(&mut clauses, &mut variables, i, old);
+                            mark_unseen(&mut combi_mat, i, deleted_clauses);
+                        } else {
+                            deleted_clauses.push(i);
+                            double_unwatch(&clauses, &mut variables, i);
+                            mark_deleted(&mut combi_mat, i)
+                        }
+                    }
+                } else {
+                    let old_index = clauses[i].variables.iter().position(|&x| x == old).unwrap();
+                    clauses[i].variables.push(new);
+                    if sign_keeping {
+                        clauses[i].signs.push(clauses[i].signs[old_index]);
+                    } else {
+                        clauses[i].signs.push(!clauses[i].signs[old_index]);
+                    }
+                    delete_variable(&mut clauses, &mut variables, i, old);
+                    mark_unseen(&mut combi_mat, i, deleted_clauses);
+                }
+            }
+        }
+    }
+}
+
+fn mark_deleted(combi_mat: &mut Vec<Vec<bool>>, i: usize) {
+    for j in 1..combi_mat.len() {
+        if j < i {
+            combi_mat[j][i] = true;
+        } else {
+            combi_mat[i][j] = true;
+        }
+    }
+}
+
+fn mark_unseen(combi_mat: &mut Vec<Vec<bool>>, i: usize, deleted_clauses: &Vec<usize>) {
+    for j in 1..combi_mat.len() {
+        if !deleted_clauses.contains(&j) {
+            if j < i {
+                combi_mat[j][i] = false;
+            } else if i < j {
+                combi_mat[i][j] = false;
+            }
+        }
+    }
 }
 
 fn set_priority_queue(
