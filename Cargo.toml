@@ -1,5 +1,5 @@
 [package]
-name = "dpll"
+name = "cdcl"
 version = "0.1.0"
 authors = ["Christian Bild", "Mingzi Kong"]
 edition = "2018"
