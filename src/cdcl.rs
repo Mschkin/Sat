@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 #[derive(Debug)]
 pub struct Clause {
     variables: Vec<usize>,
@@ -14,12 +16,14 @@ pub struct Variable {
     r: [usize; 2], // for + and -
 }
 
-pub fn cdcl(path: &str) {
-    test_set_value1();
-    test_set_value2();
-    test_set_value3();
-    test_set_value4();
-    test_set_value5();
+pub fn cdcl(path: &str) -> (bool, u128) {
+    let start = Instant::now();
+    // unit tests
+    // test_set_value1();
+    // test_set_value2();
+    // test_set_value3();
+    // test_set_value4();
+    // test_set_value5();
     let mut clauses = Vec::<Clause>::new();
     let mut variables = Vec::<Variable>::new();
     let mut queue = Vec::<(usize, bool, bool, usize)>::new(); // var_index,var_val,forced,clause_index(reason)
@@ -30,29 +34,36 @@ pub fn cdcl(path: &str) {
     let mut phase_saving = true;
     init(path, &mut clauses, &mut variables);
     let mut phases = vec![2; variables.len()];
-    // print_clauses(&clauses, &deleted_clauses, &variables);
-    // print_variables(&variables);
+    let mut restarts_count:usize=0;
+    let mut restart_criterium=550; // BerkMin c
     let mut replacement_rules = Vec::<(usize, usize, bool)>::new();
-    let mut unsat = !preprocessing2(
+    let mut unsat = !preprocessing1(
         &mut clauses,
         &mut deleted_clauses,
         &mut variables,
         &mut replacement_rules,
     );
-    println!("Preprocessing 2 done");
+    //println!("Preprocessing 1 done");
     if !unsat {
-        unsat = !preprocessing(
+        unsat = !preprocessing2(
             &mut clauses,
             &mut deleted_clauses,
             &mut variables,
             &mut priority_queue,
         );
     }
+
+    //println!("unsat {}",unsat);
     if !unsat {
         set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
     }
     let mut heuristic_count = 0;
+    let mut conflicts_count=0;
     while !unsat {
+        if start.elapsed() > Duration::from_secs(60) {
+            println!("Timeout!");
+            return (false, 0);
+        }
         let (next_variable, next_value) = vsids(
             &variables,
             &priority_queue,
@@ -62,17 +73,7 @@ pub fn cdcl(path: &str) {
         );
         heuristic_count += 1;
         if heuristic_count == 255 {
-            //println!("boom");
             update_priority(&mut variables, &mut priority_queue);
-            delete_clauses(&mut clauses, &mut deleted_clauses, &mut variables);
-            restart(
-                &mut variables,
-                &mut backtracking_stack,
-                &mut queue,
-                phase_saving,
-                &mut phases,
-                &mut cur_depth,
-            );
             heuristic_count = 0;
         }
         if next_variable == 0 {
@@ -88,8 +89,23 @@ pub fn cdcl(path: &str) {
                 &mut deleted_clauses,
                 &mut cur_depth,
                 &mut priority_queue,
+                &mut conflicts_count,
             ) {
                 unsat = true;
+            }
+            if conflicts_count==restart_criterium{
+                set_restart_criterium(&mut restart_criterium,restarts_count);
+                delete_clauses(&mut clauses, &mut deleted_clauses, &mut variables);
+                restart(
+                    &mut variables,
+                    &mut backtracking_stack,
+                    &mut queue,
+                    phase_saving,
+                    &mut phases,
+                    &mut cur_depth,
+                );
+                restarts_count+=1;
+                conflicts_count=0;
             }
             // print_clauses(&clauses, &deleted_clauses, &variables);
             // print_variables(&variables);
@@ -134,6 +150,8 @@ pub fn cdcl(path: &str) {
         // unsat
         println!("s UNSATISFIABLE");
     }
+    println!("{:?}", start.elapsed());
+    (true, start.elapsed().as_micros())
 }
 
 fn read_file(path: &str) -> String {
@@ -181,14 +199,15 @@ fn init(path: &str, mut clauses: &mut Vec<Clause>, mut variables: &mut Vec<Varia
     }
 
     let lits_chunk = lits[..lits.len() - 1].split(|x| *x == 0);
-    for chunk in lits_chunk {
+    for strange_chunk in lits_chunk {
         let mut clause = Clause {
             variables: Vec::<usize>::new(),
             signs: Vec::<bool>::new(),
             watched: [0 as usize, 0 as usize],
             learned: false,
         };
-        if remove_duplicate_vars(&mut chunk.to_vec()) {
+        let mut chunk = &mut strange_chunk.to_vec();
+        if remove_duplicate_vars(&mut chunk) {
             for lit_p in chunk {
                 let lit = *lit_p;
                 clause.variables.push((lit.abs()) as usize);
@@ -240,6 +259,21 @@ fn delete_clauses(
     }
 }
 
+fn set_restart_criterium(restart_criterium:&mut usize,restart_count:usize){
+    // Geometric policy
+    *restart_criterium=*restart_criterium*3/2;
+
+    // Luby policy
+    // let mut list=vec![1 as usize];
+    // while list.len()<=restart_count{
+    //     for i in 0..list.len(){
+    //         list.push(list[i]);
+    //     }
+    //     list.push(2*list[list.len()-1]);
+    // }
+    // *restart_criterium=32*list[restart_count];
+}
+
 fn restart(
     variables: &mut Vec<Variable>,
     backtracking_stack: &mut Vec<(usize, usize, bool, usize)>,
@@ -260,13 +294,127 @@ fn restart(
     *cur_depth = 0 as usize;
 }
 
-fn preprocessing(
+fn preprocessing1(
+    mut clauses: &mut Vec<Clause>,
+    mut deleted_clauses: &mut Vec<usize>,
+    mut variables: &mut Vec<Variable>,
+    replacement_rules: &mut Vec<(usize, usize, bool)>,
+) -> bool {
+    //println!("Preprocessing 1");
+    let start = Instant::now();
+    let mut changed_old = Vec::<usize>::new();
+    let mut changed_new = Vec::<usize>::new();
+    for i in 0..clauses.len() {
+        if !deleted_clauses.contains(&i) {
+            changed_new.push(i);
+        }
+    }
+    let mut changed_old_i = 0;
+    while changed_new.len() > 0 {
+        changed_old.clear();
+        for i in 0..changed_new.len() {
+            if !deleted_clauses.contains(&changed_new[i]) {
+                changed_old.push(changed_new[i]);
+            }
+        }
+        changed_new.clear();
+        while changed_old_i < changed_old.len() {
+            if start.elapsed() > Duration::from_secs(10) {
+                return true;
+            }
+            let mut i = changed_old[changed_old_i];
+            let mut j = 0;
+            if !deleted_clauses.contains(&i) {
+                while j < clauses.len() {
+                    if !deleted_clauses.contains(&j) && (!changed_old.contains(&j) || j > i) {
+                        let lit1 = get_literals(&clauses[i]);
+                        let lit2 = get_literals(&clauses[j]);
+                        let sub = subsumption(&lit1, &lit2);
+                        if sub == 1 {
+                            deleted_clauses.push(j);
+                            double_unwatch(&clauses, &mut variables, j);
+                            continue;
+                        } else if sub == 2 {
+                            deleted_clauses.push(i);
+                            double_unwatch(&clauses, &mut variables, i);
+                            break;
+                        }
+                        let resolve = resolvent_candidates(&lit1, &lit2);
+                        if resolve.1 == 0 {
+                            deleted_clauses.push(j);
+                            double_unwatch(&clauses, &mut variables, j);
+                            if !delete_variable(
+                                &mut clauses,
+                                &mut variables,
+                                i,
+                                resolve.0.abs() as usize,
+                            ) {
+                                return false;
+                            }
+                            changed_new.push(i);
+                            break;
+                        } else if resolve.1 == 1 {
+                            if !delete_variable(
+                                &mut clauses,
+                                &mut variables,
+                                j,
+                                resolve.0.abs() as usize,
+                            ) {
+                                return false;
+                            }
+                            changed_new.push(j);
+                            break;
+                        } else if resolve.1 == 2 {
+                            if !delete_variable(
+                                &mut clauses,
+                                &mut variables,
+                                i,
+                                resolve.0.abs() as usize,
+                            ) {
+                                return false;
+                            }
+                            changed_new.push(i);
+                            break;
+                        }
+                        if lit1.len() == 2 && lit2.len() == 2 {
+                            if lit2.contains(&-lit1[0]) && lit2.contains(&-lit1[1]) {
+                                //print_clauses(&clauses, &deleted_clauses, &variables);
+                                replace_variable(
+                                    &mut clauses,
+                                    &mut variables,
+                                    &mut deleted_clauses,
+                                    lit1[0].abs() as usize,
+                                    lit1[1].abs() as usize,
+                                    lit1[0] * lit1[1] < 0,
+                                    &mut changed_new,
+                                );
+                                replacement_rules.push((
+                                    lit1[0].abs() as usize,
+                                    lit1[1].abs() as usize,
+                                    lit1[0] * lit1[1] < 0,
+                                ));
+                                break;
+                            }
+                        }
+                    }
+                    //println!("{}{:?} {}{:?}",i,clauses[i],j,clauses[j]);
+                    j += 1;
+                }
+            }
+            changed_old_i += 1;
+        }
+    }
+    //check_watched(&clauses, &deleted_clauses,&variables);
+    return true;
+}
+
+fn preprocessing2(
     mut clauses: &mut Vec<Clause>,
     deleted_clauses: &mut Vec<usize>,
     mut variables: &mut Vec<Variable>,
     priority_queue: &mut Vec<(usize, usize, bool)>,
 ) -> bool {
-    //println!("Preprocessing");
+    //println!("Preprocessing 2");
     let mut i = 0;
     while i < clauses.len() {
         if clauses[i].variables.len() == 1 && !deleted_clauses.contains(&i) {
@@ -411,118 +559,6 @@ fn resolvent_candidates(vec1: &Vec<i32>, vec2: &Vec<i32>) -> (i32, usize) {
     return (0, 3);
 }
 
-fn preprocessing2(
-    mut clauses: &mut Vec<Clause>,
-    mut deleted_clauses: &mut Vec<usize>,
-    mut variables: &mut Vec<Variable>,
-    replacement_rules: &mut Vec<(usize, usize, bool)>,
-) -> bool {
-    //println!("Preprocessing 2");
-    let mut combi_mat = vec![vec![false; clauses.len()]; clauses.len()];
-    for i in 0..clauses.len() {
-        combi_mat[i][i] = true;
-        for j in i + 1..clauses.len() {
-            if deleted_clauses.contains(&i) || deleted_clauses.contains(&j) {
-                combi_mat[i][j] = true;
-            }
-        }
-    }
-    let mut i = 0;
-    let mut j = 1;
-    while i < clauses.len() {
-        let mut break_bool = false;
-        j = i + 1;
-        while j < clauses.len() {
-            if !combi_mat[i][j] {
-                if deleted_clauses.contains(&i) {
-                    println!("i {}", i);
-                }
-                if deleted_clauses.contains(&j) {
-                    println!("j {}", j);
-                }
-                //check_uniqueness(&mut deleted_clauses);
-                //println!("before {:?} {:?}",clauses[i],clauses[j]);
-                let lit1 = get_literals(&clauses[i]);
-                let lit2 = get_literals(&clauses[j]);
-                let sub = subsumption(&lit1, &lit2);
-                if sub == 1 {
-                    deleted_clauses.push(j);
-                    double_unwatch(&clauses, &mut variables, j);
-                    mark_deleted(&mut combi_mat, j);
-                    continue;
-                } else if sub == 2 {
-                    deleted_clauses.push(i);
-                    double_unwatch(&clauses, &mut variables, i);
-                    mark_deleted(&mut combi_mat, i);
-                    continue;
-                }
-                let resolve = resolvent_candidates(&lit1, &lit2);
-                if resolve.1 == 0 {
-                    deleted_clauses.push(j);
-                    double_unwatch(&clauses, &mut variables, j);
-                    if !delete_variable(&mut clauses, &mut variables, i, resolve.0.abs() as usize) {
-                        return false;
-                    }
-                    mark_unseen(&mut combi_mat, i, &deleted_clauses);
-                    mark_deleted(&mut combi_mat, j);
-                    //println!("{:?} {:?}",clauses[i],clauses[j]);
-                    break_bool = true;
-                    break;
-                } else if resolve.1 == 1 {
-                    if !delete_variable(&mut clauses, &mut variables, j, resolve.0.abs() as usize) {
-                        return false;
-                    }
-                    mark_unseen(&mut combi_mat, j, &deleted_clauses);
-                    //println!("{:?} {:?}",clauses[i],clauses[j]);
-                    break_bool = true;
-                    break;
-                } else if resolve.1 == 2 {
-                    if !delete_variable(&mut clauses, &mut variables, i, resolve.0.abs() as usize) {
-                        return false;
-                    }
-                    mark_unseen(&mut combi_mat, i, &deleted_clauses);
-                    //println!("test {:?} {:?}",clauses[i],clauses[j]);
-                    break_bool = true;
-                    break;
-                }
-                if lit1.len() == 2 && lit2.len() == 2 {
-                    if lit2.contains(&-lit1[0]) && lit2.contains(&-lit1[1]) {
-                        //print_clauses(&clauses, &deleted_clauses, &variables);
-                        replace_variable(
-                            &mut clauses,
-                            &mut variables,
-                            &mut deleted_clauses,
-                            lit1[0].abs() as usize,
-                            lit1[1].abs() as usize,
-                            lit1[0] * lit1[1] < 0,
-                            &mut combi_mat,
-                        );
-                        replacement_rules.push((
-                            lit1[0].abs() as usize,
-                            lit1[1].abs() as usize,
-                            lit1[0] * lit1[1] < 0,
-                        ));
-                        //println!("{} {}", i, j);
-                        //print_clauses(&clauses, &deleted_clauses, &variables);
-                        break_bool = true;
-                        break;
-                    }
-                }
-            }
-            //println!("{}{:?} {}{:?}",i,clauses[i],j,clauses[j]);
-            j += 1;
-        }
-        if !break_bool {
-            i += 1;
-            println!("{}",i);
-        } else {
-            i = 0;
-        }
-    }
-    //check_watched(&clauses, &deleted_clauses,&variables);
-    return true;
-}
-
 fn replace_variable(
     mut clauses: &mut Vec<Clause>,
     mut variables: &mut Vec<Variable>,
@@ -530,7 +566,7 @@ fn replace_variable(
     old: usize,
     new: usize,
     sign_keeping: bool,
-    mut combi_mat: &mut Vec<Vec<bool>>,
+    mut changed_new: &mut Vec<usize>,
 ) {
     for i in 0..clauses.len() {
         if !deleted_clauses.contains(&i) {
@@ -541,22 +577,18 @@ fn replace_variable(
                     if sign_keeping {
                         if clauses[i].signs[old_index] == clauses[i].signs[new_index] {
                             delete_variable(&mut clauses, &mut variables, i, old);
-                            mark_unseen(&mut combi_mat, i, deleted_clauses);
+                            changed_new.push(i);
                         } else {
                             deleted_clauses.push(i);
-                            //("535");
                             double_unwatch(&clauses, &mut variables, i);
-                            mark_deleted(&mut combi_mat, i)
                         }
                     } else {
                         if clauses[i].signs[old_index] != clauses[i].signs[new_index] {
                             delete_variable(&mut clauses, &mut variables, i, old);
-                            mark_unseen(&mut combi_mat, i, deleted_clauses);
+                            changed_new.push(i);
                         } else {
                             deleted_clauses.push(i);
-                            //println!("545");
                             double_unwatch(&clauses, &mut variables, i);
-                            mark_deleted(&mut combi_mat, i)
                         }
                     }
                 } else {
@@ -570,39 +602,16 @@ fn replace_variable(
                         } else {
                             clauses[i].signs.push(!old_index_sign);
                         }
-                        //println!("old {} new {} {}", old, new, i);
                         delete_variable(&mut clauses, &mut variables, i, old);
-                        mark_unseen(&mut combi_mat, i, deleted_clauses);
+                        changed_new.push(i);
                     } else {
                         clauses[i].variables[0] = new;
                         if !sign_keeping {
                             clauses[i].signs[0] = !clauses[i].signs[0];
                         }
-                        mark_unseen(&mut combi_mat, i, deleted_clauses);
+                        changed_new.push(i);
                     }
                 }
-            }
-        }
-    }
-}
-
-fn mark_deleted(combi_mat: &mut Vec<Vec<bool>>, i: usize) {
-    for j in 0..combi_mat.len() {
-        if j < i {
-            combi_mat[j][i] = true;
-        } else {
-            combi_mat[i][j] = true;
-        }
-    }
-}
-
-fn mark_unseen(combi_mat: &mut Vec<Vec<bool>>, i: usize, deleted_clauses: &Vec<usize>) {
-    for j in 0..combi_mat.len() {
-        if !deleted_clauses.contains(&j) {
-            if j < i {
-                combi_mat[j][i] = false;
-            } else if i < j {
-                combi_mat[i][j] = false;
             }
         }
     }
@@ -661,6 +670,7 @@ fn set_value(
     mut deleted_clauses: &mut Vec<usize>,
     mut cur_depth: &mut usize,
     mut priority_queue: &mut Vec<(usize, usize, bool)>,
+    conflicts_count:&mut usize,
 ) -> bool {
     let tup = queue.pop().unwrap();
     let variable_index = tup.0;
@@ -709,7 +719,7 @@ fn set_value(
             }
             if !sat {
                 if conflict {
-                    //println!("Conflict 1!");
+                    *conflicts_count+=1;
                     return resolve_conflict(
                         &mut clauses,
                         &mut variables,
@@ -740,7 +750,7 @@ fn set_value(
             }
         }
     } else if variables[variable_index].value != value as usize {
-        println!("Conflict 2!");
+        *conflicts_count+=1;
         return resolve_conflict(
             &mut clauses,
             &mut variables,
@@ -791,7 +801,7 @@ fn resolve_conflict(
             variables[backtracking_stack.pop().unwrap().0].value = 2;
         }
         *cur_depth = 0 as usize;
-        return preprocessing(
+        return preprocessing2(
             &mut clauses,
             &mut deleted_clauses,
             &mut variables,
@@ -834,7 +844,7 @@ fn resolve_conflict(
             variables[backtracking_stack.pop().unwrap().0].value = 2;
         }
         *cur_depth = 0 as usize;
-        return preprocessing(
+        return preprocessing2(
             &mut clauses,
             &mut deleted_clauses,
             &mut variables,
@@ -1231,309 +1241,328 @@ fn check_uniqueness(vec: &mut Vec<usize>) {
     }
 }
 
-fn test_set_value1() {
-    let mut cl = Clause {
-        variables: vec![1, 2, 3],
-        signs: vec![true, true, true],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let dummy = Variable {
-        value: 2,
-        pos_watched_occ: vec![0],
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var1 = Variable {
-        value: 2,
-        pos_watched_occ: vec![0],
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var2 = Variable {
-        value: 2,
-        pos_watched_occ: vec![0],
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var3 = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let mut variables = vec![dummy, var1, var2, var3];
-    let mut clauses = vec![cl];
-    let mut queue = vec![(1, true, false, 0)];
-    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
-    let mut deleted_clauses = Vec::<usize>::new();
-    let mut cur_depth = 1;
-    let mut priority_queue = Vec::<(usize, usize, bool)>::new();
-    set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
-    set_value(
-        &mut clauses,
-        &mut variables,
-        &mut queue,
-        &mut backtracking_stack,
-        &mut deleted_clauses,
-        &mut cur_depth,
-        &mut priority_queue,
-    );
-    assert!(clauses[0].watched == [1, 2]);
-    assert!(variables[1].value == 1);
-    assert!(variables[2].value == 2);
-    assert!(variables[3].value == 2);
-    assert!(variables[1].pos_watched_occ == [0]);
-    assert!(variables[2].pos_watched_occ == [0]);
-}
+// fn test_set_value1() {
+//     let mut cl = Clause {
+//         variables: vec![1, 2, 3],
+//         signs: vec![true, true, true],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let dummy = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![0],
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var1 = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![0],
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var2 = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![0],
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var3 = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let mut variables = vec![dummy, var1, var2, var3];
+//     let mut clauses = vec![cl];
+//     let mut queue = vec![(1, true, false, 0)];
+//     let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+//     let mut deleted_clauses = Vec::<usize>::new();
+//     let mut cur_depth = 1;
+//     let mut priority_queue = Vec::<(usize, usize, bool)>::new();
+//     set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
+//     set_value(
+//         &mut clauses,
+//         &mut variables,
+//         &mut queue,
+//         &mut backtracking_stack,
+//         &mut deleted_clauses,
+//         &mut cur_depth,
+//         &mut priority_queue,
+//     );
+//     assert!(clauses[0].watched == [1, 2]);
+//     assert!(variables[1].value == 1);
+//     assert!(variables[2].value == 2);
+//     assert!(variables[3].value == 2);
+//     assert!(variables[1].pos_watched_occ == [0]);
+//     assert!(variables[2].pos_watched_occ == [0]);
+// }
 
-fn test_set_value2() {
-    let mut cl = Clause {
-        variables: vec![1, 2, 3],
-        signs: vec![false, true, true],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let dummy = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var1 = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: vec![0],
-        r: [0, 0],
-    };
-    let var2 = Variable {
-        value: 2,
-        pos_watched_occ: vec![0],
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var3 = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let mut variables = vec![dummy, var1, var2, var3];
-    let mut clauses = vec![cl];
-    let mut queue = vec![(1, true, false, 0)];
-    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
-    let mut deleted_clauses = Vec::<usize>::new();
-    let mut cur_depth = 1;
-    let mut priority_queue = Vec::<(usize, usize, bool)>::new();
-    set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
-    set_value(
-        &mut clauses,
-        &mut variables,
-        &mut queue,
-        &mut backtracking_stack,
-        &mut deleted_clauses,
-        &mut cur_depth,
-        &mut priority_queue,
-    );
-    assert!(clauses[0].watched == [3, 2]);
-    assert!(variables[1].value == 1);
-    assert!(variables[2].value == 2);
-    assert!(variables[3].value == 2);
-    assert!(variables[1].neg_watched_occ == []);
-    assert!(variables[2].pos_watched_occ == [0]);
-    assert!(variables[3].pos_watched_occ == [0]);
-}
+// fn test_set_value2() {
+//     let mut cl = Clause {
+//         variables: vec![1, 2, 3],
+//         signs: vec![false, true, true],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let dummy = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var1 = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: vec![0],
+//         r: [0, 0],
+//     };
+//     let var2 = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![0],
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var3 = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let mut variables = vec![dummy, var1, var2, var3];
+//     let mut clauses = vec![cl];
+//     let mut queue = vec![(1, true, false, 0)];
+//     let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+//     let mut deleted_clauses = Vec::<usize>::new();
+//     let mut cur_depth = 1;
+//     let mut priority_queue = Vec::<(usize, usize, bool)>::new();
+//     set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
+//     set_value(
+//         &mut clauses,
+//         &mut variables,
+//         &mut queue,
+//         &mut backtracking_stack,
+//         &mut deleted_clauses,
+//         &mut cur_depth,
+//         &mut priority_queue,
+//     );
+//     assert!(clauses[0].watched == [3, 2]);
+//     assert!(variables[1].value == 1);
+//     assert!(variables[2].value == 2);
+//     assert!(variables[3].value == 2);
+//     assert!(variables[1].neg_watched_occ == []);
+//     assert!(variables[2].pos_watched_occ == [0]);
+//     assert!(variables[3].pos_watched_occ == [0]);
+// }
 
-fn test_set_value3() {
-    let mut cl = Clause {
-        variables: vec![1, 2],
-        signs: vec![false, true],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let dummy = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var1 = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: vec![0],
-        r: [0, 0],
-    };
-    let var2 = Variable {
-        value: 2,
-        pos_watched_occ: vec![0],
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let mut variables = vec![dummy, var1, var2];
-    let mut clauses = vec![cl];
-    let mut queue = vec![(1, true, false, 0)];
-    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
-    let mut deleted_clauses = Vec::<usize>::new();
-    let mut cur_depth = 1;
-    let mut priority_queue = Vec::<(usize, usize, bool)>::new();
-    set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
-    set_value(
-        &mut clauses,
-        &mut variables,
-        &mut queue,
-        &mut backtracking_stack,
-        &mut deleted_clauses,
-        &mut cur_depth,
-        &mut priority_queue,
-    );
-    assert!(clauses[0].watched == [1, 2]);
-    assert!(variables[1].value == 1);
-    assert!(variables[2].value == 2);
-    assert!(variables[1].neg_watched_occ == [0]);
-    assert!(variables[2].pos_watched_occ == [0]);
-    assert!(queue == [(2, true, true, 0)]);
-}
+// fn test_set_value3() {
+//     let mut cl = Clause {
+//         variables: vec![1, 2],
+//         signs: vec![false, true],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let dummy = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var1 = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: vec![0],
+//         r: [0, 0],
+//     };
+//     let var2 = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![0],
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let mut variables = vec![dummy, var1, var2];
+//     let mut clauses = vec![cl];
+//     let mut queue = vec![(1, true, false, 0)];
+//     let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+//     let mut deleted_clauses = Vec::<usize>::new();
+//     let mut cur_depth = 1;
+//     let mut priority_queue = Vec::<(usize, usize, bool)>::new();
+//     set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
+//     set_value(
+//         &mut clauses,
+//         &mut variables,
+//         &mut queue,
+//         &mut backtracking_stack,
+//         &mut deleted_clauses,
+//         &mut cur_depth,
+//         &mut priority_queue,
+//     );
+//     assert!(clauses[0].watched == [1, 2]);
+//     assert!(variables[1].value == 1);
+//     assert!(variables[2].value == 2);
+//     assert!(variables[1].neg_watched_occ == [0]);
+//     assert!(variables[2].pos_watched_occ == [0]);
+//     assert!(queue == [(2, true, true, 0)]);
+// }
 
-fn test_set_value4() {
-    let mut cl1 = Clause {
-        variables: vec![1, 2],
-        signs: vec![false, true],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let mut cl2 = Clause {
-        variables: vec![1, 2],
-        signs: vec![false, false],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let dummy = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var1 = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: vec![0, 1],
-        r: [0, 0],
-    };
-    let var2 = Variable {
-        value: 2,
-        pos_watched_occ: vec![0],
-        neg_watched_occ: vec![1],
-        r: [0, 0],
-    };
-    let mut variables = vec![dummy, var1, var2];
-    let mut clauses = vec![cl1, cl2];
-    let mut queue = vec![(1, true, false, 0)];
-    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
-    let mut deleted_clauses = Vec::<usize>::new();
-    let mut cur_depth = 1;
-    let mut priority_queue = Vec::<(usize, usize, bool)>::new();
-    set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
-    set_value(
-        &mut clauses,
-        &mut variables,
-        &mut queue,
-        &mut backtracking_stack,
-        &mut deleted_clauses,
-        &mut cur_depth,
-        &mut priority_queue,
-    );
-    set_value(
-        &mut clauses,
-        &mut variables,
-        &mut queue,
-        &mut backtracking_stack,
-        &mut deleted_clauses,
-        &mut cur_depth,
-        &mut priority_queue,
-    );
-    assert!(clauses[0].watched == [1, 2]);
-    assert!(variables[1].value == 0);
-    assert!(variables[2].value == 2);
-    assert!(variables[1].neg_watched_occ == []);
-    assert!(variables[1].pos_watched_occ == []);
-    assert!(variables[2].neg_watched_occ == []);
-    assert!(variables[2].pos_watched_occ == []);
-    assert!(clauses[2].variables == [1]);
-    assert!(clauses[2].signs == [false]);
-    assert!(deleted_clauses == [0, 1, 2]);
-}
+// fn test_set_value4() {
+//     let mut cl1 = Clause {
+//         variables: vec![1, 2],
+//         signs: vec![false, true],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let mut cl2 = Clause {
+//         variables: vec![1, 2],
+//         signs: vec![false, false],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let dummy = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var1 = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: vec![0, 1],
+//         r: [0, 0],
+//     };
+//     let var2 = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![0],
+//         neg_watched_occ: vec![1],
+//         r: [0, 0],
+//     };
+//     let mut variables = vec![dummy, var1, var2];
+//     let mut clauses = vec![cl1, cl2];
+//     let mut queue = vec![(1, true, false, 0)];
+//     let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+//     let mut deleted_clauses = Vec::<usize>::new();
+//     let mut cur_depth = 1;
+//     let mut priority_queue = Vec::<(usize, usize, bool)>::new();
+//     set_priority_queue(&clauses, &deleted_clauses, &variables, &mut priority_queue);
+//     set_value(
+//         &mut clauses,
+//         &mut variables,
+//         &mut queue,
+//         &mut backtracking_stack,
+//         &mut deleted_clauses,
+//         &mut cur_depth,
+//         &mut priority_queue,
+//     );
+//     set_value(
+//         &mut clauses,
+//         &mut variables,
+//         &mut queue,
+//         &mut backtracking_stack,
+//         &mut deleted_clauses,
+//         &mut cur_depth,
+//         &mut priority_queue,
+//     );
+//     assert!(clauses[0].watched == [1, 2]);
+//     assert!(variables[1].value == 0);
+//     assert!(variables[2].value == 2);
+//     assert!(variables[1].neg_watched_occ == []);
+//     assert!(variables[1].pos_watched_occ == []);
+//     assert!(variables[2].neg_watched_occ == []);
+//     assert!(variables[2].pos_watched_occ == []);
+//     assert!(clauses[2].variables == [1]);
+//     assert!(clauses[2].signs == [false]);
+//     assert!(deleted_clauses == [0, 1, 2]);
+// }
 
-fn test_set_value5() {
-    let mut cl1 = Clause {
-        variables: vec![1],
-        signs: vec![false],
-        watched: [0 as usize, 0 as usize],
-        learned: false,
-    };
-    let mut cl2 = Clause {
-        variables: vec![1, 2],
-        signs: vec![true, false],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let mut cl3 = Clause {
-        variables: vec![1, 2, 3],
-        signs: vec![true, true, true],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let mut cl4 = Clause {
-        variables: vec![1, 2, 3],
-        signs: vec![true, true, false],
-        watched: [1 as usize, 2 as usize],
-        learned: false,
-    };
-    let dummy = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var1 = Variable {
-        value: 2,
-        pos_watched_occ: vec![1, 2, 3],
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let var2 = Variable {
-        value: 2,
-        pos_watched_occ: vec![2, 3],
-        neg_watched_occ: vec![1],
-        r: [0, 0],
-    };
-    let var3 = Variable {
-        value: 2,
-        pos_watched_occ: Vec::<usize>::new(),
-        neg_watched_occ: Vec::<usize>::new(),
-        r: [0, 0],
-    };
-    let mut variables = vec![dummy, var1, var2, var3];
-    let mut clauses = vec![cl1, cl2, cl3, cl4];
-    let mut queue = vec![(1, true, false, 0)];
-    let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
-    let mut deleted_clauses = Vec::<usize>::new();
-    let mut cur_depth = 1;
-    let mut priority_queue = Vec::<(usize, usize, bool)>::new();
-    let res = preprocessing(
-        &mut clauses,
-        &mut deleted_clauses,
-        &mut variables,
-        &mut priority_queue,
-    );
-    assert!(variables[1].value == 0);
-    assert!(variables[2].value == 0);
-    assert!(variables[3].value == 1);
-    assert!(variables[1].neg_watched_occ == []);
-    assert!(variables[1].pos_watched_occ == []);
-    assert!(variables[2].neg_watched_occ == []);
-    assert!(variables[2].pos_watched_occ == []);
-    assert!(variables[3].neg_watched_occ == []);
-    assert!(variables[3].pos_watched_occ == []);
-    assert!(deleted_clauses == [0, 1, 2]);
-    assert!(res == false);
-}
+// fn test_set_value5() {
+//     let mut cl1 = Clause {
+//         variables: vec![1],
+//         signs: vec![false],
+//         watched: [0 as usize, 0 as usize],
+//         learned: false,
+//     };
+//     let mut cl2 = Clause {
+//         variables: vec![1, 2],
+//         signs: vec![true, false],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let mut cl3 = Clause {
+//         variables: vec![1, 2, 3],
+//         signs: vec![true, true, true],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let mut cl4 = Clause {
+//         variables: vec![1, 2, 3],
+//         signs: vec![true, true, false],
+//         watched: [1 as usize, 2 as usize],
+//         learned: false,
+//     };
+//     let dummy = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var1 = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![1, 2, 3],
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let var2 = Variable {
+//         value: 2,
+//         pos_watched_occ: vec![2, 3],
+//         neg_watched_occ: vec![1],
+//         r: [0, 0],
+//     };
+//     let var3 = Variable {
+//         value: 2,
+//         pos_watched_occ: Vec::<usize>::new(),
+//         neg_watched_occ: Vec::<usize>::new(),
+//         r: [0, 0],
+//     };
+//     let mut variables = vec![dummy, var1, var2, var3];
+//     let mut clauses = vec![cl1, cl2, cl3, cl4];
+//     let mut queue = vec![(1, true, false, 0)];
+//     let mut backtracking_stack = Vec::<(usize, usize, bool, usize)>::new();
+//     let mut deleted_clauses = Vec::<usize>::new();
+//     let mut cur_depth = 1;
+//     let mut priority_queue = Vec::<(usize, usize, bool)>::new();
+//     let res = preprocessing2(
+//         &mut clauses,
+//         &mut deleted_clauses,
+//         &mut variables,
+//         &mut priority_queue,
+//     );
+//     assert!(variables[1].value == 0);
+//     assert!(variables[2].value == 0);
+//     assert!(variables[3].value == 1);
+//     assert!(variables[1].neg_watched_occ == []);
+//     assert!(variables[1].pos_watched_occ == []);
+//     assert!(variables[2].neg_watched_occ == []);
+//     assert!(variables[2].pos_watched_occ == []);
+//     assert!(variables[3].neg_watched_occ == []);
+//     assert!(variables[3].pos_watched_occ == []);
+//     assert!(deleted_clauses == [0, 1, 2]);
+//     assert!(res == false);
+// }
+
+// fn write_output(clauses: &Vec<Clause>, deleted_clauses: &Vec<usize>, variables: &Vec<Variable>) {
+//     let mut s = String::from("p cnf ");
+//     s.push_str(&(variables.len() - 1).to_string());
+//     s.push_str(" ");
+//     s.push_str(&clauses.len().to_string());
+//     s.push_str("\n");
+//     for i in 0..clauses.len() {
+//         if !deleted_clauses.contains(&i) {
+//             let lits = get_literals(&clauses[i]);
+//             for j in &lits {
+//                 s.push_str(&(*j.to_string()));
+//                 s.push_str(" ");
+//             }
+//             s.push_str("0\n");
+//         }
+//     }
+//     println!("{}", s);
+// }
