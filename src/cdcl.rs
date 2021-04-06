@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 #[derive(Debug)]
@@ -16,7 +17,7 @@ pub struct Variable {
     r: [usize; 2], // for + and -
 }
 
-pub fn cdcl(path: &str) -> (bool, u128) {
+pub fn cdcl(path: &str, proof: bool) -> (bool, u128) {
     let start = Instant::now();
     // unit tests
     // test_set_value1();
@@ -37,19 +38,30 @@ pub fn cdcl(path: &str) -> (bool, u128) {
     let mut restarts_count: usize = 0;
     let mut restart_criterium = 550; // BerkMin c
     let mut replacement_rules = Vec::<(usize, usize, bool)>::new();
-    let mut unsat = !preprocessing1(
-        &mut clauses,
-        &mut deleted_clauses,
-        &mut variables,
-        &mut replacement_rules,
-    );
+    let mut unsat: bool;
+    let mut log = String::new();
+    let mut original_clauses = HashMap::new();
+    if !proof {
+        // disable preprocessing1 for proof logging
+        unsat = !preprocessing1(
+            &mut clauses,
+            &mut deleted_clauses,
+            &mut variables,
+            &mut replacement_rules,
+        );
     //println!("Preprocessing 1 done");
+    } else {
+        unsat = false;
+    }
     if !unsat {
         unsat = !preprocessing2(
             &mut clauses,
             &mut deleted_clauses,
             &mut variables,
             &mut priority_queue,
+            proof,
+            &mut log,
+            &mut original_clauses,
         );
     }
 
@@ -90,12 +102,22 @@ pub fn cdcl(path: &str) -> (bool, u128) {
                 &mut cur_depth,
                 &mut priority_queue,
                 &mut conflicts_count,
+                proof,
+                &mut log,
+                &mut original_clauses,
             ) {
                 unsat = true;
             }
             if conflicts_count == restart_criterium {
                 set_restart_criterium(&mut restart_criterium, restarts_count);
-                delete_clauses(&mut clauses, &mut deleted_clauses, &mut variables);
+                delete_clauses(
+                    &mut clauses,
+                    &mut deleted_clauses,
+                    &mut variables,
+                    proof,
+                    &mut log,
+                    &mut original_clauses,
+                );
                 restart(
                     &mut variables,
                     &mut backtracking_stack,
@@ -149,7 +171,12 @@ pub fn cdcl(path: &str) -> (bool, u128) {
     } else {
         // unsat
         println!("s UNSATISFIABLE");
+        if proof {
+            log.push_str("0");
+            write_file("src/proof.drup", &log);
+        }
     }
+    //print_clauses(&clauses, &deleted_clauses, &variables);
     println!("{:?}", start.elapsed());
     (true, start.elapsed().as_micros())
 }
@@ -241,6 +268,9 @@ fn delete_clauses(
     clauses: &mut Vec<Clause>,
     deleted_clauses: &mut Vec<usize>,
     mut variables: &mut Vec<Variable>,
+    proof: bool,
+    log: &mut String,
+    original_clauses: &mut HashMap<usize, String>,
 ) {
     for i in 0..clauses.len() {
         if clauses[i].learned && !deleted_clauses.contains(&i) && clauses[i].variables.len() > 6 {
@@ -252,6 +282,17 @@ fn delete_clauses(
             }
             if free_count > 3 {
                 deleted_clauses.push(i);
+                if proof {
+                    if original_clauses.contains_key(&i) {
+                        log.push_str(&format!("d {}", original_clauses[&i]));
+                        original_clauses.remove(&i);
+                    } else {
+                        if clauses[i].variables.len() > 1 {
+                            // exclude unit clause from delete lines
+                            log.push_str(&format!("d {}", get_clause_str(&clauses[i])));
+                        }
+                    }
+                }
                 //println!("227");
                 double_unwatch(&clauses, &mut variables, i);
             }
@@ -413,6 +454,9 @@ fn preprocessing2(
     deleted_clauses: &mut Vec<usize>,
     mut variables: &mut Vec<Variable>,
     priority_queue: &mut Vec<(usize, usize, bool)>,
+    proof: bool,
+    log: &mut String,
+    original_clauses: &mut HashMap<usize, String>,
 ) -> bool {
     //println!("Preprocessing 2");
     let mut i = 0;
@@ -436,11 +480,28 @@ fn preprocessing2(
                             if variables[var_index].value == clauses[j].signs[x] as usize {
                                 // remove clause
                                 deleted_clauses.push(j);
+                                if proof {
+                                    if original_clauses.contains_key(&j) {
+                                        log.push_str(&format!("d {}", original_clauses[&j]));
+                                        original_clauses.remove(&j);
+                                    } else {
+                                        if clauses[j].variables.len() > 1 {
+                                            // exclude unit clause from delete lines
+                                            log.push_str(&format!(
+                                                "d {}",
+                                                get_clause_str(&clauses[j])
+                                            ));
+                                        }
+                                    }
+                                }
                                 if clauses[j].variables.len() > 1 {
                                     double_unwatch(&clauses, &mut variables, j);
                                 }
                             } else {
                                 // remove var from clause
+                                if !original_clauses.contains_key(&j) {
+                                    original_clauses.insert(j, get_clause_str(&clauses[j]));
+                                }
                                 if !delete_variable(&mut clauses, &mut variables, j, var_index) {
                                     return false;
                                 }
@@ -671,6 +732,9 @@ fn set_value(
     mut cur_depth: &mut usize,
     mut priority_queue: &mut Vec<(usize, usize, bool)>,
     conflicts_count: &mut usize,
+    proof: bool,
+    mut log: &mut String,
+    mut original_clauses: &mut HashMap<usize, String>,
 ) -> bool {
     let tup = queue.pop().unwrap();
     let variable_index = tup.0;
@@ -727,6 +791,9 @@ fn set_value(
                         &mut cur_depth,
                         clause_index,
                         &mut priority_queue,
+                        proof,
+                        &mut log,
+                        &mut original_clauses,
                     );
                 } else {
                     if new_watched != 0 {
@@ -758,6 +825,9 @@ fn set_value(
             &mut cur_depth,
             reason,
             &mut priority_queue,
+            proof,
+            &mut log,
+            &mut original_clauses,
         );
     }
     return true;
@@ -772,6 +842,9 @@ fn resolve_conflict(
     cur_depth: &mut usize,
     clause_index: usize,
     mut priority_queue: &mut Vec<(usize, usize, bool)>,
+    proof: bool,
+    mut log: &mut String,
+    mut original_clauses: &mut HashMap<usize, String>,
 ) -> bool {
     // print_clauses(&clauses, &deleted_clauses, &variables);
     // print_variables(&variables);
@@ -794,6 +867,8 @@ fn resolve_conflict(
             &unit_clause,
             0,
             0,
+            proof,
+            &mut log,
         );
         while backtracking_stack.len() > 0 {
             variables[backtracking_stack.pop().unwrap().0].value = 2;
@@ -804,6 +879,9 @@ fn resolve_conflict(
             &mut deleted_clauses,
             &mut variables,
             &mut priority_queue,
+            proof,
+            &mut log,
+            &mut original_clauses,
         );
     }
     let mut max_depth_var = Vec::<usize>::new();
@@ -837,6 +915,8 @@ fn resolve_conflict(
             &resolvent,
             0,
             0,
+            proof,
+            &mut log,
         );
         while backtracking_stack.len() > 0 {
             variables[backtracking_stack.pop().unwrap().0].value = 2;
@@ -847,6 +927,9 @@ fn resolve_conflict(
             &mut deleted_clauses,
             &mut variables,
             &mut priority_queue,
+            proof,
+            &mut log,
+            &mut original_clauses,
         );
     }
     let (uip_index, new_uip_value, new_clause_index) = non_chronological_backtracking(
@@ -855,6 +938,8 @@ fn resolve_conflict(
         &mut variables,
         resolvent,
         &mut backtracking_stack,
+        proof,
+        &mut log,
     );
     *cur_depth = backtracking_stack[backtracking_stack.len() - 1].1;
     queue.push((uip_index, new_uip_value, true, new_clause_index));
@@ -901,6 +986,8 @@ fn non_chronological_backtracking(
     mut variables: &mut Vec<Variable>,
     resolvent: &mut Clause,
     backtracking_stack: &mut Vec<(usize, usize, bool, usize)>,
+    proof: bool,
+    mut log: &mut String,
 ) -> (usize, bool, usize) {
     let uip_index = backtracking_stack.pop().unwrap().0;
     let new_uip_value = variables[uip_index].value == 0;
@@ -920,6 +1007,8 @@ fn non_chronological_backtracking(
         resolvent,
         uip_index,
         backtracking_stack[i].0,
+        proof,
+        &mut log,
     );
     (uip_index, new_uip_value, new_clause_index)
 }
@@ -931,6 +1020,8 @@ fn clause_learning(
     new_clause: &Clause,
     var1: usize,
     var2: usize,
+    proof: bool,
+    log: &mut String,
 ) -> usize {
     let mut copy = copy_clause(new_clause);
     copy.learned = true;
@@ -941,6 +1032,9 @@ fn clause_learning(
     } else {
         clauses.push(copy);
         new_clause_index = clauses.len() - 1;
+    }
+    if proof {
+        log.push_str(&get_clause_str(new_clause));
     }
     double_watch(&mut clauses, &mut variables, new_clause_index, var1, var2);
     update_r(&clauses, &mut variables, new_clause_index);
@@ -1119,6 +1213,25 @@ fn vsids(
     }
 }
 
+fn write_file(path: &str, text: &String) {
+    use std::io::Write;
+    let mut file = std::fs::File::create(path).expect("create failed");
+    file.write_all(text.as_bytes()).expect("write failed");
+}
+
+fn get_clause_str(clause: &Clause) -> String {
+    let mut cls = String::new();
+    for i in 0..clause.variables.len() {
+        if clause.signs[i] {
+            cls.push_str(&format!("{} ", clause.variables[i]));
+        } else {
+            cls.push_str(&format!("-{} ", clause.variables[i]));
+        }
+    }
+    cls.push_str("0\n");
+    cls
+}
+
 // test functions
 // fn print_variables(variables: &Vec<Variable>) {
 //     for i in 1..variables.len() {
@@ -1141,36 +1254,36 @@ fn vsids(
 //     }
 // }
 
-// fn print_clauses(clauses: &Vec<Clause>, deleted_clauses: &Vec<usize>, variables: &Vec<Variable>) {
-//     for i in 0..clauses.len() {
-//         let mut sat = false;
-//         let mut var_str = String::new();
-//         let mut val_str = String::new();
-//         for j in 0..clauses[i].variables.len() {
-//             if clauses[i].signs[j] {
-//                 var_str = format!("{} {}", var_str, clauses[i].variables[j]);
-//             } else {
-//                 var_str = format!("{} -{}", var_str, clauses[i].variables[j]);
-//             }
-//             val_str = format!("{} {}", val_str, variables[clauses[i].variables[j]].value);
-//             if clauses[i].signs[j] as usize == variables[clauses[i].variables[j]].value {
-//                 sat = true;
-//             }
-//         }
-//         var_str = format!(
-//             "{} watched:{} {}",
-//             var_str, clauses[i].watched[0], clauses[i].watched[1]
-//         );
-//         if deleted_clauses.contains(&i) {
-//             var_str = format!("{} deleted", var_str);
-//         }
-//         if sat {
-//             val_str = format!("{} sat", val_str);
-//         }
-//         println!("{}, {}", i, var_str);
-//         println!("{}, {}", i, val_str);
-//     }
-// }
+fn print_clauses(clauses: &Vec<Clause>, deleted_clauses: &Vec<usize>, variables: &Vec<Variable>) {
+    for i in 0..clauses.len() {
+        let mut sat = false;
+        let mut var_str = String::new();
+        let mut val_str = String::new();
+        for j in 0..clauses[i].variables.len() {
+            if clauses[i].signs[j] {
+                var_str = format!("{} {}", var_str, clauses[i].variables[j]);
+            } else {
+                var_str = format!("{} -{}", var_str, clauses[i].variables[j]);
+            }
+            val_str = format!("{} {}", val_str, variables[clauses[i].variables[j]].value);
+            if clauses[i].signs[j] as usize == variables[clauses[i].variables[j]].value {
+                sat = true;
+            }
+        }
+        var_str = format!(
+            "{} watched:{} {}",
+            var_str, clauses[i].watched[0], clauses[i].watched[1]
+        );
+        if deleted_clauses.contains(&i) {
+            var_str = format!("{} deleted", var_str);
+        }
+        if sat {
+            val_str = format!("{} sat", val_str);
+        }
+        println!("{}, {}", i, var_str);
+        println!("{}, {}", i, val_str);
+    }
+}
 
 // fn validate(clauses: &Vec<Clause>, variables: &Vec<Variable>) -> bool {
 //     // check if there is still free variables

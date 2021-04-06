@@ -10,7 +10,7 @@ fn main() {
         benchmark();
     } else {
         if args[1].ends_with(".cnf") {
-            cdcl(&args[1]);
+            cdcl(&args[1], args[2] == "1");
         } else {
             // folder
             let paths = std::fs::read_dir(&args[1]).unwrap();
@@ -18,13 +18,13 @@ fn main() {
                 let path_str = &format!("{}", path.unwrap().path().display());
                 if path_str.ends_with(".cnf") {
                     println!("{}", path_str);
-                    cdcl(path_str);
+                    cdcl(path_str, false);
                 }
             }
         }
     }
 
-    //cdcl("inputs/sat/aim-200-3_4-yes1-3.cnf");
+    //cdcl("inputs/sat/aim-200-3_4-yes1-3.cnf",false);
 }
 
 fn benchmark() {
@@ -42,7 +42,7 @@ fn benchmark() {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.contains("aim") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 aim_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -51,7 +51,7 @@ fn benchmark() {
             }
         } else if path_str.contains("ii") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 ii_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -60,7 +60,7 @@ fn benchmark() {
             }
         } else if path_str.contains("par") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 par_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -69,7 +69,7 @@ fn benchmark() {
             }
         } else if path_str.contains("ssa") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 ssa_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -78,7 +78,7 @@ fn benchmark() {
             }
         } else if path_str.contains("uf50") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 uf50_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -87,7 +87,7 @@ fn benchmark() {
             }
         } else if path_str.contains("hole") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 hole_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -96,7 +96,7 @@ fn benchmark() {
             }
         } else if path_str.contains("pret") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 pret_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -110,7 +110,7 @@ fn benchmark() {
         let path_str = &format!("{}", path.unwrap().path().display());
         if path_str.contains("aim") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 aim_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -119,7 +119,7 @@ fn benchmark() {
             }
         } else if path_str.contains("ii") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 ii_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -128,7 +128,7 @@ fn benchmark() {
             }
         } else if path_str.contains("par") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 par_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -137,7 +137,7 @@ fn benchmark() {
             }
         } else if path_str.contains("ssa") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 ssa_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -146,7 +146,7 @@ fn benchmark() {
             }
         } else if path_str.contains("uf50") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 uf50_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -155,7 +155,7 @@ fn benchmark() {
             }
         } else if path_str.contains("hole") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 hole_time.push(sol.1 as i32);
                 solved_count += 1;
@@ -164,7 +164,7 @@ fn benchmark() {
             }
         } else if path_str.contains("pret") {
             println!("{}", path_str);
-            let sol = cdcl(path_str);
+            let sol = cdcl(path_str, false);
             if sol.0 {
                 pret_time.push(sol.1 as i32);
                 solved_count += 1;
